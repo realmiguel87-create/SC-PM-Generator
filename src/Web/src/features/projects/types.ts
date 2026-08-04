@@ -19,6 +19,8 @@ export interface RibaStageInstance {
   plannedEndDate: string | null;
   actualStartDate: string | null;
   actualEndDate: string | null;
+  pendingGatewayId: string | null;
+  gatewayStatus: "Pending" | "Approved" | "Rejected" | "Withdrawn" | null;
 }
 
 export interface ProjectDetail extends ProjectListItem {

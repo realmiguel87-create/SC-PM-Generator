@@ -25,6 +25,17 @@ public class GetProjectByIdQueryHandler : IRequestHandler<GetProjectByIdQuery, P
 
         var stageDefinitions = await _db.RibaStageDefinitions.ToDictionaryAsync(sd => sd.StageNumber, cancellationToken);
 
+        // Most recent gateway per stage instance, so the UI can offer "decide" once one is
+        // pending and show the outcome once it's been approved/rejected.
+        var stageInstanceIds = project.RibaStageInstances.Select(s => s.Id).ToList();
+        var gatewaysForProject = await _db.Gateways
+            .Where(g => stageInstanceIds.Contains(g.RibaStageInstanceId))
+            .OrderByDescending(g => g.CreatedDate)
+            .ToListAsync(cancellationToken);
+        var latestGatewayByStage = gatewaysForProject
+            .GroupBy(g => g.RibaStageInstanceId)
+            .ToDictionary(g => g.Key, g => g.First());
+
         return new ProjectDetailDto
         {
             Id = project.Id,
@@ -41,16 +52,22 @@ public class GetProjectByIdQueryHandler : IRequestHandler<GetProjectByIdQuery, P
             ProgrammeName = project.Programme?.Name,
             RibaStages = project.RibaStageInstances
                 .OrderBy(s => s.StageNumber)
-                .Select(s => new RibaStageInstanceDto
+                .Select(s =>
                 {
-                    Id = s.Id,
-                    StageNumber = s.StageNumber,
-                    StageName = stageDefinitions.GetValueOrDefault(s.StageNumber)?.StageName ?? string.Empty,
-                    Status = s.Status.ToString(),
-                    PlannedStartDate = s.PlannedStartDate,
-                    PlannedEndDate = s.PlannedEndDate,
-                    ActualStartDate = s.ActualStartDate,
-                    ActualEndDate = s.ActualEndDate
+                    latestGatewayByStage.TryGetValue(s.Id, out var gateway);
+                    return new RibaStageInstanceDto
+                    {
+                        Id = s.Id,
+                        StageNumber = s.StageNumber,
+                        StageName = stageDefinitions.GetValueOrDefault(s.StageNumber)?.StageName ?? string.Empty,
+                        Status = s.Status.ToString(),
+                        PlannedStartDate = s.PlannedStartDate,
+                        PlannedEndDate = s.PlannedEndDate,
+                        ActualStartDate = s.ActualStartDate,
+                        ActualEndDate = s.ActualEndDate,
+                        PendingGatewayId = gateway?.Status == Domain.Enums.GatewayStatus.Pending ? gateway.Id : null,
+                        GatewayStatus = gateway?.Status.ToString()
+                    };
                 })
                 .ToList()
         };

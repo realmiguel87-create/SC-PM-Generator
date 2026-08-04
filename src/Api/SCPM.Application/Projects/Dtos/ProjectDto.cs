@@ -31,4 +31,8 @@ public class RibaStageInstanceDto
     public DateOnly? PlannedEndDate { get; set; }
     public DateOnly? ActualStartDate { get; set; }
     public DateOnly? ActualEndDate { get; set; }
+
+    /// <summary>The stage's most recent gateway, if one has been requested. Null if no gateway exists yet.</summary>
+    public Guid? PendingGatewayId { get; set; }
+    public string? GatewayStatus { get; set; }
 }
