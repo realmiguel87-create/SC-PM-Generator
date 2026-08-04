@@ -31,9 +31,14 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 
 ## Phase 3 — Risk, Issues, Opportunities & Stakeholders
 
-- Risk/issue/opportunity registers with heatmaps (Recharts)
-- Stakeholder register, engagement tracker, communications plan
-- Escalation workflow tied into approvals
+- [x] Risk register (probability/impact, status, mitigation plan) with a Recharts probability×impact heatmap — API + Risks tab
+- [x] Issue log (severity, status, resolution) — API + Issues tab
+- [x] Opportunity register (potential value, probability, status) — API + Opportunities tab
+- [x] Stakeholder register (influence/interest) with an engagement tracker (logged touchpoints) — API + Stakeholders tab
+- [x] Escalation: raises a Risk or Issue for a decision above project-team authority (`Risk.Escalation`, distinct from a `Governance.Gateway`), with create/resolve endpoints — not yet surfaced in a tab UI
+- [ ] Escalation workflow tied into formal Governance approvals (currently a standalone Pending/Resolved/Withdrawn record, not routed through `Governance.Approval`) — deferred
+- [ ] Communications plan, consultation reporting — deferred; only the engagement tracker (a log of what happened) is implemented, not planning/scheduling of future engagement
+- [ ] RiskScore history (probability/impact drift over time) — deferred; `Risk.Score` is a live computed value, not yet snapshotted per change the way `Cost.Forecast` is
 
 ## Phase 4 — NEC4 & SBCC Contract Administration
 

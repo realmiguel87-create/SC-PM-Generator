@@ -10,6 +10,10 @@ import { GovernanceTab } from "@/features/governance/GovernanceTab";
 import { CostTab } from "@/features/cost/CostTab";
 import { ProgrammeTab } from "@/features/programme/ProgrammeTab";
 import { SnapshotsTab } from "@/features/snapshots/SnapshotsTab";
+import { RisksTab } from "@/features/risk/RisksTab";
+import { IssuesTab } from "@/features/risk/IssuesTab";
+import { OpportunitiesTab } from "@/features/risk/OpportunitiesTab";
+import { StakeholdersTab } from "@/features/stakeholders/StakeholdersTab";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 const WORKSPACE_TABS = [
@@ -18,7 +22,9 @@ const WORKSPACE_TABS = [
   "Handover", "Lessons Learned", "Benefits Realisation",
 ];
 
-const FUNCTIONAL_TABS = new Set(["Overview", "Governance", "Cost", "Programme", "Snapshots"]);
+const FUNCTIONAL_TABS = new Set([
+  "Overview", "Governance", "Cost", "Programme", "Snapshots", "Risks", "Issues", "Opportunities", "Stakeholders",
+]);
 
 export function ProjectWorkspacePage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -176,6 +182,18 @@ export function ProjectWorkspacePage() {
         </Tabs.Content>
         <Tabs.Content value="Snapshots" className="pt-4">
           {projectId && <SnapshotsTab projectId={projectId} />}
+        </Tabs.Content>
+        <Tabs.Content value="Risks" className="pt-4">
+          {projectId && <RisksTab projectId={projectId} />}
+        </Tabs.Content>
+        <Tabs.Content value="Issues" className="pt-4">
+          {projectId && <IssuesTab projectId={projectId} />}
+        </Tabs.Content>
+        <Tabs.Content value="Opportunities" className="pt-4">
+          {projectId && <OpportunitiesTab projectId={projectId} />}
+        </Tabs.Content>
+        <Tabs.Content value="Stakeholders" className="pt-4">
+          {projectId && <StakeholdersTab projectId={projectId} />}
         </Tabs.Content>
 
         {WORKSPACE_TABS.filter((t) => !FUNCTIONAL_TABS.has(t)).map((tab) => (

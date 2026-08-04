@@ -120,11 +120,15 @@ erDiagram
 - **Governance** (extends Phase 1): `DecisionRegisterEntry` (temporal) — day-to-day governance decisions, distinct from a `Gateway`/`Approval` (which gates RIBA stage progression).
 - **Reporting**: `Snapshot` — a curated, named point-in-time capture of a project's key figures (RIBA stage, budget, forecast), captured manually or by the Daily/Weekly/Monthly Hangfire recurring jobs. Not temporal itself (it's already an immutable point-in-time record). `ReportDefinition`, `ReportRun`, `SnapshotComparison` remain deferred to Phase 6.
 
-## Phase 3+ — Remaining Schemas (design-level, not yet implemented)
+## Phase 3 — Implemented
+
+- **Risk**: `Risk` (temporal — `Probability`/`Impact` 1-5, `Score` computed as their product, DB `CHECK` constraints enforce the 1-5 range), `Issue` (temporal — severity/status/resolution), `Opportunity` (temporal — potential value + probability, same 1-5 scale as Risk for combined reporting), `Escalation` (temporal — raises a Risk *or* Issue, exactly one via a `CHECK` constraint; distinct from `Governance.Gateway`, which gates RIBA stage progression rather than day-to-day risk/issue decisions).
+- **Stakeholder**: `Stakeholder` (temporal — influence/interest), `StakeholderEngagement` (not temporal — an append-only log of touchpoints, there is nothing to version).
+- `RiskScore` (probability/impact history over time, separate from the live `Risk.Score`) and `CommunicationPlanItem`/`ConsultationResponse` (forward-looking engagement planning, distinct from the engagement *log* already implemented) remain deferred — see `docs/roadmap.md`.
+
+## Phase 4+ — Remaining Schemas (design-level, not yet implemented)
 
 - **Cost**: `Budget`, `BudgetApproval`, `ForecastLine`, `FundingSource`, `FundingAllocation`.
-- **Risk**: `Risk`, `Issue`, `Opportunity`, `RiskScore` (probability/impact history), `Escalation`.
-- **Stakeholder**: `Stakeholder`, `StakeholderEngagement`, `CommunicationPlanItem`, `ConsultationResponse`.
 - **Documents**: `Document` (logical record) → `DocumentVersion` (1.0 Draft, 1.1 Draft, 2.0 Approved, ...) → `File` (physical export, SharePoint/Blob pointer). Status enum: Draft, Review, Approved, Superseded, Archived, Rejected.
 - **NEC4**: `EarlyWarning`, `CompensationEvent`, `ContractData`, `RiskAllocationMatrixItem`, `AcceptedProgramme`, `PaymentAssessment`, `ChangeRegisterItem`.
 - **SBCC**: `Variation`, `ExtensionOfTime`, `LossAndExpense`, `ArchitectsInstruction`, `InterimValuation`.

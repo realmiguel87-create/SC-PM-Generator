@@ -24,6 +24,12 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Milestone> Milestones => Set<Milestone>();
     public DbSet<DecisionRegisterEntry> DecisionRegisterEntries => Set<DecisionRegisterEntry>();
     public DbSet<Snapshot> Snapshots => Set<Snapshot>();
+    public DbSet<Risk> Risks => Set<Risk>();
+    public DbSet<Issue> Issues => Set<Issue>();
+    public DbSet<Opportunity> Opportunities => Set<Opportunity>();
+    public DbSet<Escalation> Escalations => Set<Escalation>();
+    public DbSet<Stakeholder> Stakeholders => Set<Stakeholder>();
+    public DbSet<StakeholderEngagement> StakeholderEngagements => Set<StakeholderEngagement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +47,11 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<Forecast>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Milestone>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<DecisionRegisterEntry>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<Risk>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<Issue>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<Opportunity>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<Escalation>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<Stakeholder>().HasQueryFilter(e => !e.IsDeleted);
 
         base.OnModelCreating(modelBuilder);
     }

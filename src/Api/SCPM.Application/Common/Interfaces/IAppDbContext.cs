@@ -22,6 +22,12 @@ public interface IAppDbContext
     DbSet<Milestone> Milestones { get; }
     DbSet<DecisionRegisterEntry> DecisionRegisterEntries { get; }
     DbSet<Snapshot> Snapshots { get; }
+    DbSet<Risk> Risks { get; }
+    DbSet<Issue> Issues { get; }
+    DbSet<Opportunity> Opportunities { get; }
+    DbSet<Escalation> Escalations { get; }
+    DbSet<Stakeholder> Stakeholders { get; }
+    DbSet<StakeholderEngagement> StakeholderEngagements { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
