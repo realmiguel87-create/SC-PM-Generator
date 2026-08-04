@@ -18,6 +18,12 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<ActivityLogEntry> ActivityLog => Set<ActivityLogEntry>();
     public DbSet<FieldAuditEntry> FieldAudit => Set<FieldAuditEntry>();
+    public DbSet<CostPlan> CostPlans => Set<CostPlan>();
+    public DbSet<CostPlanLine> CostPlanLines => Set<CostPlanLine>();
+    public DbSet<Forecast> Forecasts => Set<Forecast>();
+    public DbSet<Milestone> Milestones => Set<Milestone>();
+    public DbSet<DecisionRegisterEntry> DecisionRegisterEntries => Set<DecisionRegisterEntry>();
+    public DbSet<Snapshot> Snapshots => Set<Snapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +37,10 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<RibaStageInstance>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Gateway>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Approval>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<CostPlan>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<Forecast>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<Milestone>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<DecisionRegisterEntry>().HasQueryFilter(e => !e.IsDeleted);
 
         base.OnModelCreating(modelBuilder);
     }

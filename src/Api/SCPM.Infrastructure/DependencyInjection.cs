@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SCPM.Application.Common.Interfaces;
+using SCPM.Infrastructure.BackgroundJobs;
 using SCPM.Infrastructure.Identity;
 using SCPM.Infrastructure.Persistence;
 using SCPM.Infrastructure.Persistence.Interceptors;
@@ -38,6 +39,11 @@ public static class DependencyInjection
                 PrepareSchemaIfNecessary = true
             }));
         services.AddHangfireServer();
+
+        // Registered explicitly (not just constructed ad hoc) so Hangfire's ASP.NET Core job
+        // activator — which resolves job types via the DI container, not Activator.CreateInstance
+        // — can find it and inject the scoped IAppDbContext/ISender it depends on.
+        services.AddScoped<SnapshotJobs>();
 
         return services;
     }

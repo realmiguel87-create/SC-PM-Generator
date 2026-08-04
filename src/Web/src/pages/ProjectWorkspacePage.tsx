@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { RibaStageTracker } from "@/components/RibaStageTracker";
 import { useAdvanceRibaStage, useProject } from "@/features/projects/api";
 import { useCreateGateway, useDecideGateway } from "@/features/governance/api";
+import { GovernanceTab } from "@/features/governance/GovernanceTab";
+import { CostTab } from "@/features/cost/CostTab";
+import { ProgrammeTab } from "@/features/programme/ProgrammeTab";
+import { SnapshotsTab } from "@/features/snapshots/SnapshotsTab";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 const WORKSPACE_TABS = [
@@ -13,6 +17,8 @@ const WORKSPACE_TABS = [
   "Stakeholders", "Documents", "Reports", "Approvals", "Snapshots", "NEC4", "SBCC",
   "Handover", "Lessons Learned", "Benefits Realisation",
 ];
+
+const FUNCTIONAL_TABS = new Set(["Overview", "Governance", "Cost", "Programme", "Snapshots"]);
 
 export function ProjectWorkspacePage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -159,7 +165,20 @@ export function ProjectWorkspacePage() {
           )}
         </Tabs.Content>
 
-        {WORKSPACE_TABS.filter((t) => t !== "Overview").map((tab) => (
+        <Tabs.Content value="Governance" className="pt-4">
+          {projectId && <GovernanceTab projectId={projectId} />}
+        </Tabs.Content>
+        <Tabs.Content value="Cost" className="pt-4">
+          {projectId && <CostTab projectId={projectId} />}
+        </Tabs.Content>
+        <Tabs.Content value="Programme" className="pt-4">
+          {projectId && <ProgrammeTab projectId={projectId} />}
+        </Tabs.Content>
+        <Tabs.Content value="Snapshots" className="pt-4">
+          {projectId && <SnapshotsTab projectId={projectId} />}
+        </Tabs.Content>
+
+        {WORKSPACE_TABS.filter((t) => !FUNCTIONAL_TABS.has(t)).map((tab) => (
           <Tabs.Content key={tab} value={tab} className="pt-4">
             <Card>
               <CardContent className="pt-5 text-sm text-text-secondary">

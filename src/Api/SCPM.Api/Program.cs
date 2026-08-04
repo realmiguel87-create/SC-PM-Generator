@@ -5,6 +5,7 @@ using Microsoft.Identity.Web;
 using SCPM.Api.Middleware;
 using SCPM.Application;
 using SCPM.Infrastructure;
+using SCPM.Infrastructure.BackgroundJobs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,6 +71,12 @@ app.UseHangfireDashboard("/jobs", new DashboardOptions
 {
     Authorization = [new HangfireAdministratorFilter()]
 });
+
+// Snapshot Engine v1 scheduled jobs (docs/roadmap.md Phase 2). Idempotent — AddOrUpdate
+// replaces the existing recurring job definition on every app start rather than duplicating it.
+RecurringJob.AddOrUpdate<SnapshotJobs>("snapshot-daily", j => j.RunDailySnapshotAsync(CancellationToken.None), Cron.Daily);
+RecurringJob.AddOrUpdate<SnapshotJobs>("snapshot-weekly", j => j.RunWeeklySnapshotAsync(CancellationToken.None), Cron.Weekly);
+RecurringJob.AddOrUpdate<SnapshotJobs>("snapshot-monthly", j => j.RunMonthlySnapshotAsync(CancellationToken.None), Cron.Monthly);
 
 app.MapControllers();
 

@@ -1,8 +1,11 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SCPM.Application.Governance.Commands.CreateDecision;
 using SCPM.Application.Governance.Commands.CreateGateway;
 using SCPM.Application.Governance.Commands.DecideGateway;
+using SCPM.Application.Governance.Dtos;
+using SCPM.Application.Governance.Queries.GetDecisions;
 
 namespace SCPM.Api.Controllers;
 
@@ -34,5 +37,20 @@ public class GovernanceController : ControllerBase
     {
         await _mediator.Send(new DecideGatewayCommand(gatewayId, request.Decision, request.Comments), ct);
         return NoContent();
+    }
+
+    [HttpGet("api/projects/{projectId:guid}/decisions")]
+    public async Task<ActionResult<List<DecisionDto>>> GetDecisions(Guid projectId, CancellationToken ct)
+        => Ok(await _mediator.Send(new GetDecisionsQuery(projectId), ct));
+
+    public record CreateDecisionRequest(string Title, string Description, DateOnly DecisionDate, string? Rationale);
+
+    [HttpPost("api/projects/{projectId:guid}/decisions")]
+    [Authorize(Policy = "CanWrite")]
+    public async Task<ActionResult<Guid>> CreateDecision(Guid projectId, CreateDecisionRequest request, CancellationToken ct)
+    {
+        var id = await _mediator.Send(
+            new CreateDecisionCommand(projectId, request.Title, request.Description, request.DecisionDate, request.Rationale), ct);
+        return Ok(id);
     }
 }

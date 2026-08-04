@@ -113,16 +113,21 @@ erDiagram
     }
 ```
 
-## Phase 2+ — Remaining Schemas (design-level, not yet implemented)
+## Phase 2 — Implemented
 
-- **Cost**: `CostPlan`, `CostPlanLine`, `Budget`, `BudgetApproval`, `Forecast`, `ForecastLine`, `FundingSource`, `FundingAllocation` — all temporal.
-- **Programme**: `Programme` (delivery schedule, distinct from `Projects.Programme` portfolio grouping — see naming note below), `Milestone`, `ProgrammeBaseline`, `DelayEvent`.
+- **Cost**: `CostPlan` (temporal, versioned, `IsBaseline` flag) → `CostPlanLine` (category/amount); `Forecast` (temporal — a point-in-time forecast against `ApprovedBudgetAtForecast`, so variance is reconstructable even after the project's budget later changes).
+- **Programme**: `Milestone` (temporal — `BaselineDate`/`ForecastDate`/`ActualDate`, `DelayDays` computed from these, distinct from `Projects.Programme` portfolio grouping — see naming note below). `ProgrammeBaseline`/`DelayEvent` as separate entities remain deferred — delay is currently a computed property on `Milestone`, not yet its own history.
+- **Governance** (extends Phase 1): `DecisionRegisterEntry` (temporal) — day-to-day governance decisions, distinct from a `Gateway`/`Approval` (which gates RIBA stage progression).
+- **Reporting**: `Snapshot` — a curated, named point-in-time capture of a project's key figures (RIBA stage, budget, forecast), captured manually or by the Daily/Weekly/Monthly Hangfire recurring jobs. Not temporal itself (it's already an immutable point-in-time record). `ReportDefinition`, `ReportRun`, `SnapshotComparison` remain deferred to Phase 6.
+
+## Phase 3+ — Remaining Schemas (design-level, not yet implemented)
+
+- **Cost**: `Budget`, `BudgetApproval`, `ForecastLine`, `FundingSource`, `FundingAllocation`.
 - **Risk**: `Risk`, `Issue`, `Opportunity`, `RiskScore` (probability/impact history), `Escalation`.
 - **Stakeholder**: `Stakeholder`, `StakeholderEngagement`, `CommunicationPlanItem`, `ConsultationResponse`.
 - **Documents**: `Document` (logical record) → `DocumentVersion` (1.0 Draft, 1.1 Draft, 2.0 Approved, ...) → `File` (physical export, SharePoint/Blob pointer). Status enum: Draft, Review, Approved, Superseded, Archived, Rejected.
 - **NEC4**: `EarlyWarning`, `CompensationEvent`, `ContractData`, `RiskAllocationMatrixItem`, `AcceptedProgramme`, `PaymentAssessment`, `ChangeRegisterItem`.
 - **SBCC**: `Variation`, `ExtensionOfTime`, `LossAndExpense`, `ArchitectsInstruction`, `InterimValuation`.
-- **Reporting**: `ReportDefinition`, `ReportRun`, `Snapshot`, `SnapshotComparison`.
 - **Handover**: `AssetRegisterItem`, `OMTrackerItem`, `TrainingLogItem`, `LessonLearned`, `BenefitRealisation`.
 
 > **Naming note**: the spec uses "Programme" for both the portfolio-level grouping of projects (a capital programme, e.g. "Schools Estate Programme") and the project-level delivery schedule (a Gantt/milestone programme). These are modelled as two distinct entities — `Projects.Programme` (portfolio) and `Programme.Programme` (schedule) — to avoid ambiguity; the schema name disambiguates them.

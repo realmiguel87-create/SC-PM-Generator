@@ -8,7 +8,7 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 
 - [x] Enterprise solution architecture (`docs/architecture.md`)
 - [x] Entity-relationship model for the core + Phase 1 schemas (`docs/erd.md`)
-- [x] Database schemas: `Security`, `Projects`, `Governance`, `Audit` — temporal tables, soft delete, constraints
+- [x] Database schema for `Security`, `Projects`, `Governance`, `Audit` — modelled as EF Core entities/configurations (temporal tables, soft delete, constraints); EF Core migrations are the schema's source of truth, see `database/schema/README.md`
 - [x] Core stored procedures + views for the Projects vertical
 - [x] .NET solution: Domain / Application / Infrastructure / Api, CQRS via MediatR, FluentValidation
 - [x] Entra ID authentication + RBAC middleware
@@ -20,11 +20,14 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 
 ## Phase 2 — Governance, Cost & Programme
 
-- Governance module: mandates, business cases, decision register, approval gates
-- Cost module: cost plans, budgets, forecasts, temporal cost history
-- Programme module: milestones, Gantt-style programme view, delay analysis
-- Template generator (governance + cost + programme templates) via QuestPDF/OpenXML/ClosedXML
-- Snapshot engine v1 (scheduled + manual snapshots, Hangfire jobs)
+- [x] Governance module: decision register (create/list) — API + Governance tab
+- [x] Cost module: baseline cost plans (with lines), forecast recording + history, budget/forecast/variance summary — API + Cost tab
+- [x] Programme module: milestones (baseline/forecast/actual dates, delay calculation, status) — API + Programme tab
+- [x] Snapshot engine v1: `Snapshot` entity, manual capture (API + Snapshots tab), and scheduled Daily/Weekly/Monthly Hangfire recurring jobs that snapshot every active project
+- [ ] Governance module: project mandates, strategic business cases — deferred, not yet modelled
+- [ ] Cost module: multi-line budget approval workflow, funding sources/allocations — deferred
+- [ ] Programme module: Gantt-style visual timeline (Recharts), delay-cause analysis — deferred; current UI is a milestone table
+- [ ] Template generator (QuestPDF/OpenXML/ClosedXML document export) — deferred to Phase 6 (Reporting Centre export engine), so branding/export logic is built once rather than per-module
 
 ## Phase 3 — Risk, Issues, Opportunities & Stakeholders
 

@@ -31,6 +31,25 @@ public enum ApprovalDecision
     ApprovedWithConditions
 }
 
+public enum MilestoneStatus
+{
+    NotStarted,
+    InProgress,
+    Complete,
+    Delayed
+}
+
+public enum SnapshotType
+{
+    Daily,
+    Weekly,
+    Monthly,
+    Gateway,
+    Committee,
+    Audit,
+    Manual
+}
+
 public enum RoleName
 {
     Administrator,

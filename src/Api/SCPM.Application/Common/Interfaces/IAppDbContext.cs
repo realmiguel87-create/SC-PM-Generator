@@ -16,6 +16,12 @@ public interface IAppDbContext
     DbSet<Gateway> Gateways { get; }
     DbSet<Approval> Approvals { get; }
     DbSet<User> Users { get; }
+    DbSet<CostPlan> CostPlans { get; }
+    DbSet<CostPlanLine> CostPlanLines { get; }
+    DbSet<Forecast> Forecasts { get; }
+    DbSet<Milestone> Milestones { get; }
+    DbSet<DecisionRegisterEntry> DecisionRegisterEntries { get; }
+    DbSet<Snapshot> Snapshots { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
