@@ -51,6 +51,17 @@ public class RibaStageDefinitionConfiguration : IEntityTypeConfiguration<RibaSta
         builder.ToTable("RibaStageDefinition", "Projects");
         builder.HasKey(s => s.StageNumber);
         builder.Property(s => s.StageName).HasMaxLength(100).IsRequired();
+
+        builder.HasData(
+            new RibaStageDefinition { StageNumber = 0, StageName = "Strategic Definition", Description = "Identify the need, establish the business case and project brief." },
+            new RibaStageDefinition { StageNumber = 1, StageName = "Preparation and Brief", Description = "Develop project objectives, quality objectives and project outcomes." },
+            new RibaStageDefinition { StageNumber = 2, StageName = "Concept Design", Description = "Prepare concept design aligned to project brief." },
+            new RibaStageDefinition { StageNumber = 3, StageName = "Spatial Coordination", Description = "Undertake technical design coordination and spatial coordination." },
+            new RibaStageDefinition { StageNumber = 4, StageName = "Technical Design", Description = "Develop technical design in accordance with design responsibility matrix." },
+            new RibaStageDefinition { StageNumber = 5, StageName = "Manufacturing and Construction", Description = "Manufacture building systems and construct on site." },
+            new RibaStageDefinition { StageNumber = 6, StageName = "Handover", Description = "Conclude building contract, handover of building and asset information." },
+            new RibaStageDefinition { StageNumber = 7, StageName = "Use", Description = "Undertake in-use services in accordance with schedule of services." }
+        );
     }
 }
 

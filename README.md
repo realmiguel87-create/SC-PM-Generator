@@ -24,15 +24,15 @@ This repository is being built in phases (see [`docs/roadmap.md`](docs/roadmap.m
 ```
 docs/                    Architecture, ERD, roadmap, module specs
 database/
-  schema/                DDL per schema (Security, Projects, Governance, Cost, ...)
-  procedures/            Stored procedures
-  views/                 Reporting/consumption views
-  migrations/            EF Core migration output (generated)
+  schema/                README explaining why EF Core migrations are the schema's source of truth
+  procedures/            Stored procedures (hand-written, layered on top of EF-migrated tables)
+  views/                 Reporting/consumption views (same)
 src/
   Api/
     SCPM.Domain/          Entities, enums, domain events — no framework dependencies
     SCPM.Application/     CQRS handlers (MediatR), validators (FluentValidation), DTOs
-    SCPM.Infrastructure/  EF Core, SharePoint/Blob clients, report generators, Hangfire jobs
+    SCPM.Infrastructure/  EF Core (+ Persistence/Migrations, the generated schema source of truth),
+                           SharePoint/Blob clients, report generators, Hangfire jobs
     SCPM.Api/              Controllers, auth, middleware, composition root
   Web/                    React + TypeScript SPA
 tests/
@@ -51,7 +51,18 @@ infrastructure/
 ```bash
 cd src/Api
 dotnet restore
+
+# EF Core migrations are the schema's source of truth (see database/schema/README.md).
+# First run only — generates src/Api/SCPM.Infrastructure/Persistence/Migrations/:
+dotnet ef migrations add InitialCreate --project SCPM.Infrastructure --startup-project SCPM.Api
+
 dotnet ef database update --project SCPM.Infrastructure --startup-project SCPM.Api
+
+# Views and the stage-gate stored procedure aren't EF-managed; apply them once after the
+# tables exist (see database/schema/README.md for why these stay hand-written SQL):
+sqlcmd -S "(localdb)\mssqllocaldb" -d SCPM -i ../../database/views/010_Projects_Views.sql
+sqlcmd -S "(localdb)\mssqllocaldb" -d SCPM -i ../../database/procedures/010_Governance_ApproveGateway.sql
+
 dotnet run --project SCPM.Api
 ```
 

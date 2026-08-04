@@ -18,11 +18,41 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
 public class RoleConfiguration : IEntityTypeConfiguration<Role>
 {
+    // Fixed GUIDs (not Guid.NewGuid()) so the seed is stable across migrations —
+    // a random value here would produce a spurious pending migration on every build.
+    public static readonly Guid AdministratorId    = new("00000000-0000-0000-0000-000000000001");
+    public static readonly Guid DirectorId         = new("00000000-0000-0000-0000-000000000002");
+    public static readonly Guid ProjectSponsorId   = new("00000000-0000-0000-0000-000000000003");
+    public static readonly Guid ProgrammeManagerId = new("00000000-0000-0000-0000-000000000004");
+    public static readonly Guid ProjectManagerId   = new("00000000-0000-0000-0000-000000000005");
+    public static readonly Guid CommercialManagerId = new("00000000-0000-0000-0000-000000000006");
+    public static readonly Guid QuantitySurveyorId = new("00000000-0000-0000-0000-000000000007");
+    public static readonly Guid GovernanceOfficerId = new("00000000-0000-0000-0000-000000000008");
+    public static readonly Guid CommitteeOfficerId = new("00000000-0000-0000-0000-000000000009");
+    public static readonly Guid ReadOnlyUserId     = new("00000000-0000-0000-0000-000000000010");
+
     public void Configure(EntityTypeBuilder<Role> builder)
     {
         builder.ToTable("Role", "Security");
         builder.Property(r => r.Name).HasMaxLength(100).IsRequired();
         builder.HasIndex(r => r.Name).IsUnique();
+
+        // CreatedDate is pinned (not DateTime.UtcNow) so re-running `dotnet ef migrations add`
+        // reproduces byte-identical seed data instead of baking in "now" as a migration constant.
+        var seededAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        builder.HasData(
+            new Role { Id = AdministratorId, Name = "Administrator", Description = "Full platform administration", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = DirectorId, Name = "Director", Description = "Portfolio-wide oversight and approval", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = ProjectSponsorId, Name = "Project Sponsor", Description = "Accountable owner for assigned project(s)", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = ProgrammeManagerId, Name = "Programme Manager", Description = "Manages a capital programme (group of projects)", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = ProjectManagerId, Name = "Project Manager", Description = "Day-to-day delivery of assigned project(s)", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = CommercialManagerId, Name = "Commercial Manager", Description = "NEC4/SBCC contract administration", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = QuantitySurveyorId, Name = "Quantity Surveyor", Description = "Cost management and valuations", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = GovernanceOfficerId, Name = "Governance Officer", Description = "Gateway/approval process administration", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = CommitteeOfficerId, Name = "Committee Officer", Description = "Committee and cabinet reporting", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = ReadOnlyUserId, Name = "Read Only User", Description = "View-only access", CreatedBy = Guid.Empty, CreatedDate = seededAt }
+        );
     }
 }
 
