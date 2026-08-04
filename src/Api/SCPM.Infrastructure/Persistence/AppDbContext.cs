@@ -30,6 +30,18 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Escalation> Escalations => Set<Escalation>();
     public DbSet<Stakeholder> Stakeholders => Set<Stakeholder>();
     public DbSet<StakeholderEngagement> StakeholderEngagements => Set<StakeholderEngagement>();
+    public DbSet<EarlyWarning> EarlyWarnings => Set<EarlyWarning>();
+    public DbSet<CompensationEvent> CompensationEvents => Set<CompensationEvent>();
+    public DbSet<ContractDataEntry> ContractDataEntries => Set<ContractDataEntry>();
+    public DbSet<RiskAllocationItem> RiskAllocationItems => Set<RiskAllocationItem>();
+    public DbSet<AcceptedProgrammeEntry> AcceptedProgrammeEntries => Set<AcceptedProgrammeEntry>();
+    public DbSet<PaymentAssessment> PaymentAssessments => Set<PaymentAssessment>();
+    public DbSet<ChangeRegisterItem> ChangeRegisterItems => Set<ChangeRegisterItem>();
+    public DbSet<Variation> Variations => Set<Variation>();
+    public DbSet<ExtensionOfTime> ExtensionsOfTime => Set<ExtensionOfTime>();
+    public DbSet<LossAndExpenseClaim> LossAndExpenseClaims => Set<LossAndExpenseClaim>();
+    public DbSet<ArchitectsInstruction> ArchitectsInstructions => Set<ArchitectsInstruction>();
+    public DbSet<InterimValuation> InterimValuations => Set<InterimValuation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -52,6 +64,18 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<Opportunity>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Escalation>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Stakeholder>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<EarlyWarning>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<CompensationEvent>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ContractDataEntry>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<RiskAllocationItem>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<AcceptedProgrammeEntry>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<PaymentAssessment>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ChangeRegisterItem>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<Variation>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ExtensionOfTime>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<LossAndExpenseClaim>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ArchitectsInstruction>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<InterimValuation>().HasQueryFilter(e => !e.IsDeleted);
 
         base.OnModelCreating(modelBuilder);
     }

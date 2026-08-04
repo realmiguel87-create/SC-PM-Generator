@@ -28,6 +28,18 @@ public interface IAppDbContext
     DbSet<Escalation> Escalations { get; }
     DbSet<Stakeholder> Stakeholders { get; }
     DbSet<StakeholderEngagement> StakeholderEngagements { get; }
+    DbSet<EarlyWarning> EarlyWarnings { get; }
+    DbSet<CompensationEvent> CompensationEvents { get; }
+    DbSet<ContractDataEntry> ContractDataEntries { get; }
+    DbSet<RiskAllocationItem> RiskAllocationItems { get; }
+    DbSet<AcceptedProgrammeEntry> AcceptedProgrammeEntries { get; }
+    DbSet<PaymentAssessment> PaymentAssessments { get; }
+    DbSet<ChangeRegisterItem> ChangeRegisterItems { get; }
+    DbSet<Variation> Variations { get; }
+    DbSet<ExtensionOfTime> ExtensionsOfTime { get; }
+    DbSet<LossAndExpenseClaim> LossAndExpenseClaims { get; }
+    DbSet<ArchitectsInstruction> ArchitectsInstructions { get; }
+    DbSet<InterimValuation> InterimValuations { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

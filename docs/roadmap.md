@@ -42,8 +42,10 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 
 ## Phase 4 — NEC4 & SBCC Contract Administration
 
-- NEC4: Early Warning, Compensation Event, Contract Data, Risk Allocation Matrix, Accepted Programme, Payment Assessment, Change registers + export packs
-- SBCC: Variation, EOT, Loss & Expense, Architect's Instructions, Interim Valuation registers + export packs
+- [x] NEC4: Early Warning (raise/close), Compensation Event (notify/status), Contract Data (Part One/Two), Risk Allocation Matrix, Accepted Programme (acceptance log), Payment Assessment (assess/certify), Change Register — API + NEC4 tab (in-tab sub-navigation across all seven registers)
+- [x] SBCC: Variation (instruct/status), Extension of Time (claim/award), Loss & Expense (claim), Architect's Instructions (issue), Interim Valuation — API + SBCC tab
+- [ ] Export packs (PDF/DOCX/XLSX per register) — deferred to Phase 6 (Reporting Centre export engine), consistent with the Phase 2 template-generator deferral
+- [ ] Not every register got a full status lifecycle in the UI (e.g. Change Register status update, EOT partial-award, L&E award) — the API endpoints exist (`UpdateChangeRegisterItemStatus`, `UpdateExtensionOfTimeStatus` with a `DaysAwarded` override) but aren't all wired to a button yet; deferred as UI polish, not a data-model gap
 
 ## Phase 5 — Document Management & SharePoint/Blob Integration
 

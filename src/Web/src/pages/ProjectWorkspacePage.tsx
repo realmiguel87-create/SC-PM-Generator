@@ -14,6 +14,8 @@ import { RisksTab } from "@/features/risk/RisksTab";
 import { IssuesTab } from "@/features/risk/IssuesTab";
 import { OpportunitiesTab } from "@/features/risk/OpportunitiesTab";
 import { StakeholdersTab } from "@/features/stakeholders/StakeholdersTab";
+import { NEC4Tab } from "@/features/nec4/NEC4Tab";
+import { SBCCTab } from "@/features/sbcc/SBCCTab";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 const WORKSPACE_TABS = [
@@ -23,7 +25,8 @@ const WORKSPACE_TABS = [
 ];
 
 const FUNCTIONAL_TABS = new Set([
-  "Overview", "Governance", "Cost", "Programme", "Snapshots", "Risks", "Issues", "Opportunities", "Stakeholders",
+  "Overview", "Governance", "Cost", "Programme", "Snapshots", "Risks", "Issues", "Opportunities",
+  "Stakeholders", "NEC4", "SBCC",
 ]);
 
 export function ProjectWorkspacePage() {
@@ -194,6 +197,12 @@ export function ProjectWorkspacePage() {
         </Tabs.Content>
         <Tabs.Content value="Stakeholders" className="pt-4">
           {projectId && <StakeholdersTab projectId={projectId} />}
+        </Tabs.Content>
+        <Tabs.Content value="NEC4" className="pt-4">
+          {projectId && <NEC4Tab projectId={projectId} />}
+        </Tabs.Content>
+        <Tabs.Content value="SBCC" className="pt-4">
+          {projectId && <SBCCTab projectId={projectId} />}
         </Tabs.Content>
 
         {WORKSPACE_TABS.filter((t) => !FUNCTIONAL_TABS.has(t)).map((tab) => (

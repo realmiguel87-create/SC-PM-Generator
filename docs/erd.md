@@ -126,12 +126,16 @@ erDiagram
 - **Stakeholder**: `Stakeholder` (temporal — influence/interest), `StakeholderEngagement` (not temporal — an append-only log of touchpoints, there is nothing to version).
 - `RiskScore` (probability/impact history over time, separate from the live `Risk.Score`) and `CommunicationPlanItem`/`ConsultationResponse` (forward-looking engagement planning, distinct from the engagement *log* already implemented) remain deferred — see `docs/roadmap.md`.
 
-## Phase 4+ — Remaining Schemas (design-level, not yet implemented)
+## Phase 4 — Implemented
+
+- **NEC4**: `EarlyWarning` (temporal — Open/Closed), `CompensationEvent` (temporal — `Reference` unique per project, `ClauseReference` free text since the full NEC4 clause taxonomy varies by contract option, Notified → Quoted → Accepted/Rejected → Implemented), `ContractDataEntry` (temporal — one row per Part One/Two clause), `RiskAllocationItem` (temporal — Client/Contractor/Shared), `AcceptedProgrammeEntry` (temporal — the clause 31/32 acceptance log; the programme itself is tracked via `Programme.Milestone`, this is the acceptance record), `PaymentAssessment` (temporal — Assessed → Certified → Paid), `ChangeRegisterItem` (temporal — the overall change rollup, kept separate from `CompensationEvent` since not every change originates as a CE).
+- **SBCC**: `Variation` (temporal — Instructed → Priced → Agreed), `ExtensionOfTime` (temporal — days claimed vs. awarded), `LossAndExpenseClaim` (temporal), `ArchitectsInstruction` (temporal — sequential `InstructionNumber` unique per project), `InterimValuation` (temporal — sequential `ValuationNumber`, gross valuation + net payment).
+- Export packs (PDF/DOCX/XLSX per register) remain deferred to Phase 6, alongside the rest of the template/export engine — see `docs/roadmap.md`.
+
+## Phase 5+ — Remaining Schemas (design-level, not yet implemented)
 
 - **Cost**: `Budget`, `BudgetApproval`, `ForecastLine`, `FundingSource`, `FundingAllocation`.
 - **Documents**: `Document` (logical record) → `DocumentVersion` (1.0 Draft, 1.1 Draft, 2.0 Approved, ...) → `File` (physical export, SharePoint/Blob pointer). Status enum: Draft, Review, Approved, Superseded, Archived, Rejected.
-- **NEC4**: `EarlyWarning`, `CompensationEvent`, `ContractData`, `RiskAllocationMatrixItem`, `AcceptedProgramme`, `PaymentAssessment`, `ChangeRegisterItem`.
-- **SBCC**: `Variation`, `ExtensionOfTime`, `LossAndExpense`, `ArchitectsInstruction`, `InterimValuation`.
 - **Handover**: `AssetRegisterItem`, `OMTrackerItem`, `TrainingLogItem`, `LessonLearned`, `BenefitRealisation`.
 
 > **Naming note**: the spec uses "Programme" for both the portfolio-level grouping of projects (a capital programme, e.g. "Schools Estate Programme") and the project-level delivery schedule (a Gantt/milestone programme). These are modelled as two distinct entities — `Projects.Programme` (portfolio) and `Programme.Programme` (schedule) — to avoid ambiguity; the schema name disambiguates them.
