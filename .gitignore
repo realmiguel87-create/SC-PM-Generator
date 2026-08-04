@@ -1,0 +1,23 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Node / Web
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Env / secrets
+*.env
+.env.local
+appsettings.*.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
