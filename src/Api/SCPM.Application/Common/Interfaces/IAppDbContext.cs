@@ -43,6 +43,7 @@ public interface IAppDbContext
     DbSet<Document> Documents { get; }
     DbSet<DocumentVersion> DocumentVersions { get; }
     DbSet<DocumentFile> DocumentFiles { get; }
+    DbSet<CommitteeReport> CommitteeReports { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

@@ -73,9 +73,28 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 
 ## Phase 6 — Committee, Stakeholder & Executive Reporting Centre
 
-- Committee/Cabinet/Board report generator with standard section structure
-- Multi-format export engine (PDF/DOCX/XLSX/PPTX/CSV/JSON) with consistent branding
-- Snapshot comparison engine + comparison reports
+- [x] Committee/Cabinet/Board report generator with the standard section structure (Executive
+      Summary, Background, Current Position, Finance, Programme, Risk, Stakeholders,
+      Sustainability, Equality Impact, Recommendations — Appendices are the report's attached
+      DocumentFiles, not a separate field). Finance/Programme/Risk/Stakeholder commentary is
+      auto-drafted from live project data on creation ("generate project documentation
+      automatically"); Executive Summary/Background/Recommendations are always author-written.
+      API + workspace Reports tab + a portfolio-wide Reporting Centre page.
+- [x] Export engine: PDF (QuestPDF), XLSX (ClosedXML), CSV, JSON — one `ICommitteeReportExporter`
+      generating all four from the same `CommitteeReportDto`, so they can't drift from each
+      other. Genuinely verified: 4 unit tests check actual output bytes (`%PDF` header, `PK` zip
+      header for XLSX, CSV escaping, JSON round-trip), not just that the code compiles against
+      QuestPDF/ClosedXML.
+- [ ] DOCX and PPTX export — deliberately **not** attempted this phase. Six half-verified formats
+      is a worse outcome than four verified ones; OpenXML SDK's WordprocessingDocument/
+      PresentationDocument part hierarchy is fiddly enough (see Phase 5's Microsoft.Graph lesson)
+      that it deserves its own pass with the same reflection-first verification approach, not a
+      rushed addition at the end of an already-large phase.
+- [x] Snapshot comparison engine: compares the fields `Snapshot` actually captures (RIBA stage,
+      budget, forecast) between any two snapshots of the same project. Comparing risk/programme/
+      NEC4/SBCC registers between snapshots isn't possible yet — `Snapshot` doesn't capture those
+      registers, only project-header figures (see docs/roadmap.md Phase 2) — extending what a
+      snapshot captures is the natural next step, not a bug in this query.
 
 ## Phase 7 — Power BI, Security Hardening, Testing, DevOps Maturity
 

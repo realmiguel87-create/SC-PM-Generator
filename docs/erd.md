@@ -137,7 +137,13 @@ erDiagram
 - **Documents**: `Document` (temporal — logical record: title/category/RIBA stage) → `DocumentVersion` (temporal — `MajorVersion`/`MinorVersion`, `Status`: Draft/Review/Approved/Superseded/Archived/Rejected; approving bumps the *same row* to the next major version rather than inserting a new one, see `docs/roadmap.md` Phase 5) → `DocumentFile` (not temporal — an immutable physical file per exported format, metadata in SQL, content in SharePoint Online via `ISharePointDocumentStore`, archived copies in Azure Blob via `IBlobArchiveStore` once a version is Archived).
 - A real SQL Server catch worth recording here: `DocumentVersion.SnapshotId` needed `OnDelete(DeleteBehavior.Restrict)` — without it, `DocumentVersion -> Document -> Project` and `DocumentVersion -> Snapshot -> Project` are two cascade-delete paths converging on the same `Project` row, which SQL Server refuses to create. The same issue existed (and was fixed the same way) on `Governance.Gateway.RibaStageInstanceId` and `Risk.Escalation.RiskId`/`IssueId` — any FK to another entity that itself cascades from `Project`, added alongside a direct `ProjectId` FK, needs `Restrict`.
 
-## Phase 6+ — Remaining Schemas (design-level, not yet implemented)
+## Phase 6 — Implemented
+
+- **Reporting** (extends Phase 2): `CommitteeReport` (temporal — `ReportType`: CommitteeReport/CabinetReport/BoardReport/CapitalProgrammeReport/DecisionPaper; `Status`: Draft/Approved/Submitted; optionally anchored to a `Snapshot` so "Current Position" reflects a fixed point in time rather than live data). Same multiple-cascade-paths fix as `DocumentVersion.SnapshotId` was needed on `CommitteeReport.SnapshotId`.
+- `SnapshotComparison` remains a computed query result (`CompareSnapshotsQuery`), not its own persisted entity — there's nothing to store beyond the two Snapshot rows being compared and the delta, which is cheap to recompute on every request.
+- `ReportDefinition`/`ReportRun` (as distinct persisted entities for report *templates* and *scheduled generation history*) remain deferred — the current model is "generate a report row, edit it, export it on demand," not a scheduled/templated pipeline.
+
+## Phase 7+ — Remaining Schemas (design-level, not yet implemented)
 
 - **Cost**: `Budget`, `BudgetApproval`, `ForecastLine`, `FundingSource`, `FundingAllocation`.
 - **Handover**: `AssetRegisterItem`, `OMTrackerItem`, `TrainingLogItem`, `LessonLearned`, `BenefitRealisation`.

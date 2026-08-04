@@ -45,6 +45,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentVersion> DocumentVersions => Set<DocumentVersion>();
     public DbSet<DocumentFile> DocumentFiles => Set<DocumentFile>();
+    public DbSet<CommitteeReport> CommitteeReports => Set<CommitteeReport>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -81,6 +82,7 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<InterimValuation>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Document>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<DocumentVersion>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<CommitteeReport>().HasQueryFilter(e => !e.IsDeleted);
 
         base.OnModelCreating(modelBuilder);
     }

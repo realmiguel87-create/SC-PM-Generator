@@ -1,5 +1,21 @@
 namespace SCPM.Domain.Enums;
 
+public enum CommitteeReportType
+{
+    CommitteeReport,
+    CabinetReport,
+    BoardReport,
+    CapitalProgrammeReport,
+    DecisionPaper
+}
+
+public enum CommitteeReportStatus
+{
+    Draft,
+    Approved,
+    Submitted
+}
+
 public enum DocumentVersionStatus
 {
     Draft,

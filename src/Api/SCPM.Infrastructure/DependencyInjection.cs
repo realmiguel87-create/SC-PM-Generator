@@ -8,6 +8,7 @@ using SCPM.Infrastructure.BackgroundJobs;
 using SCPM.Infrastructure.Identity;
 using SCPM.Infrastructure.Persistence;
 using SCPM.Infrastructure.Persistence.Interceptors;
+using SCPM.Infrastructure.Reporting;
 using SCPM.Infrastructure.SharePoint;
 using SCPM.Infrastructure.Storage;
 
@@ -52,6 +53,8 @@ public static class DependencyInjection
         services.AddScoped<ISharePointDocumentStore, GraphSharePointDocumentStore>();
         services.AddHttpClient();
         services.AddScoped<IBlobArchiveStore, AzureBlobArchiveStore>();
+
+        services.AddScoped<ICommitteeReportExporter, CommitteeReportExporter>();
 
         return services;
     }

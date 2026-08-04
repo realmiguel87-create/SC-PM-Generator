@@ -17,6 +17,7 @@ import { StakeholdersTab } from "@/features/stakeholders/StakeholdersTab";
 import { NEC4Tab } from "@/features/nec4/NEC4Tab";
 import { SBCCTab } from "@/features/sbcc/SBCCTab";
 import { DocumentsTab } from "@/features/documents/DocumentsTab";
+import { ReportsTab } from "@/features/reporting/ReportsTab";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 const WORKSPACE_TABS = [
@@ -27,7 +28,7 @@ const WORKSPACE_TABS = [
 
 const FUNCTIONAL_TABS = new Set([
   "Overview", "Governance", "Cost", "Programme", "Snapshots", "Risks", "Issues", "Opportunities",
-  "Stakeholders", "NEC4", "SBCC", "Documents",
+  "Stakeholders", "NEC4", "SBCC", "Documents", "Reports",
 ]);
 
 export function ProjectWorkspacePage() {
@@ -189,6 +190,9 @@ export function ProjectWorkspacePage() {
         </Tabs.Content>
         <Tabs.Content value="Documents" className="pt-4">
           {projectId && <DocumentsTab projectId={projectId} />}
+        </Tabs.Content>
+        <Tabs.Content value="Reports" className="pt-4">
+          {projectId && <ReportsTab projectId={projectId} />}
         </Tabs.Content>
         <Tabs.Content value="Risks" className="pt-4">
           {projectId && <RisksTab projectId={projectId} />}

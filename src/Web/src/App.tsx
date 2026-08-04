@@ -4,6 +4,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { ProjectsListPage } from "@/pages/ProjectsListPage";
 import { ProjectWorkspacePage } from "@/pages/ProjectWorkspacePage";
 import { PlaceholderPage } from "@/pages/PlaceholderPage";
+import { ReportingCentrePage } from "@/pages/ReportingCentrePage";
 
 export function App() {
   return (
@@ -16,10 +17,7 @@ export function App() {
           path="governance"
           element={<PlaceholderPage title="Governance" phase="Phase 2" />}
         />
-        <Route
-          path="reporting"
-          element={<PlaceholderPage title="Reporting Centre" phase="Phase 6" />}
-        />
+        <Route path="reporting" element={<ReportingCentrePage />} />
       </Route>
     </Routes>
   );
