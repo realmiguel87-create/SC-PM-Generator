@@ -2,7 +2,7 @@ using MediatR;
 using SCPM.Application.Common.Interfaces;
 using SCPM.Domain.Entities;
 
-namespace SCPM.Application.Programme.Commands.CreateMilestone;
+namespace SCPM.Application.ProgrammeManagement.Commands.CreateMilestone;
 
 public record CreateMilestoneCommand(
     Guid ProjectId,

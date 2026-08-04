@@ -1,9 +1,9 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SCPM.Application.Common.Interfaces;
-using SCPM.Application.Programme.Dtos;
+using SCPM.Application.ProgrammeManagement.Dtos;
 
-namespace SCPM.Application.Programme.Queries.GetMilestones;
+namespace SCPM.Application.ProgrammeManagement.Queries.GetMilestones;
 
 public record GetMilestonesQuery(Guid ProjectId) : IRequest<List<MilestoneDto>>;
 

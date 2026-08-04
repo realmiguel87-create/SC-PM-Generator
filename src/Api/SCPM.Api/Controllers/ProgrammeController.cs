@@ -1,10 +1,10 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SCPM.Application.Programme.Commands.CreateMilestone;
-using SCPM.Application.Programme.Commands.UpdateMilestoneStatus;
-using SCPM.Application.Programme.Dtos;
-using SCPM.Application.Programme.Queries.GetMilestones;
+using SCPM.Application.ProgrammeManagement.Commands.CreateMilestone;
+using SCPM.Application.ProgrammeManagement.Commands.UpdateMilestoneStatus;
+using SCPM.Application.ProgrammeManagement.Dtos;
+using SCPM.Application.ProgrammeManagement.Queries.GetMilestones;
 using SCPM.Domain.Enums;
 
 namespace SCPM.Api.Controllers;

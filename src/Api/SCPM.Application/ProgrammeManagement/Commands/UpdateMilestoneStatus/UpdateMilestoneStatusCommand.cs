@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SCPM.Application.Common.Interfaces;
 using SCPM.Domain.Enums;
 
-namespace SCPM.Application.Programme.Commands.UpdateMilestoneStatus;
+namespace SCPM.Application.ProgrammeManagement.Commands.UpdateMilestoneStatus;
 
 public record UpdateMilestoneStatusCommand(Guid MilestoneId, MilestoneStatus Status, DateOnly? ActualDate) : IRequest<Unit>;
 

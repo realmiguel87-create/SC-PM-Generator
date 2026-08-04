@@ -31,7 +31,7 @@ src/
   Api/
     SCPM.Domain/          Entities, enums, domain events — no framework dependencies
     SCPM.Application/     CQRS handlers (MediatR), validators (FluentValidation), DTOs
-    SCPM.Infrastructure/  EF Core (+ Persistence/Migrations, the generated schema source of truth),
+    SCPM.Infrastructure/  EF Core (+ Migrations, the generated schema source of truth),
                            SharePoint/Blob clients, report generators, Hangfire jobs
     SCPM.Api/              Controllers, auth, middleware, composition root
   Web/                    React + TypeScript SPA
@@ -53,7 +53,7 @@ cd src/Api
 dotnet restore
 
 # EF Core migrations are the schema's source of truth (see database/schema/README.md).
-# First run only — generates src/Api/SCPM.Infrastructure/Persistence/Migrations/:
+# First run only — generates src/Api/SCPM.Infrastructure/Migrations/:
 dotnet ef migrations add InitialCreate --project SCPM.Infrastructure --startup-project SCPM.Api
 
 dotnet ef database update --project SCPM.Infrastructure --startup-project SCPM.Api

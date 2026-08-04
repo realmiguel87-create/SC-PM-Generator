@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace SCPM.Application.Programme.Commands.CreateMilestone;
+namespace SCPM.Application.ProgrammeManagement.Commands.CreateMilestone;
 
 public class CreateMilestoneCommandValidator : AbstractValidator<CreateMilestoneCommand>
 {

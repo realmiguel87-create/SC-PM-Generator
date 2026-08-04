@@ -18,7 +18,7 @@ dotnet ef migrations add InitialCreate --project SCPM.Infrastructure --startup-p
 dotnet ef database update --project SCPM.Infrastructure --startup-project SCPM.Api
 ```
 
-Migration output lands in `src/Api/SCPM.Infrastructure/Persistence/Migrations/` and is
+Migration output lands in `src/Api/SCPM.Infrastructure/Migrations/` and is
 committed like any other source file. `SCPM.Infrastructure/Persistence/AppDbContextFactory.cs`
 lets the `dotnet ef` CLI construct `AppDbContext` at design time without booting the full
 `SCPM.Api` host.

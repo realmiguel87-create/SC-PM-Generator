@@ -1,4 +1,4 @@
-namespace SCPM.Application.Programme.Dtos;
+namespace SCPM.Application.ProgrammeManagement.Dtos;
 
 public class MilestoneDto
 {
