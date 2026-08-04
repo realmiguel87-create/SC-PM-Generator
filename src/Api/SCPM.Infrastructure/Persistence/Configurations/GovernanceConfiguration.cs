@@ -19,7 +19,12 @@ public class GatewayConfiguration : IEntityTypeConfiguration<Gateway>
         builder.Property(g => g.Status).HasConversion<string>().HasMaxLength(30);
 
         builder.HasOne(g => g.Project).WithMany().HasForeignKey(g => g.ProjectId);
-        builder.HasOne(g => g.RibaStageInstance).WithMany().HasForeignKey(g => g.RibaStageInstanceId);
+        // RibaStageInstance also cascades from Project, so Project -> Gateway direct and
+        // Project -> RibaStageInstance -> Gateway would be two cascade paths to the same
+        // row — SQL Server rejects that at CREATE TABLE time (error 1785). Restrict here;
+        // the app never hard-deletes anyway (soft delete throughout), so this only affects
+        // constraint validity, not real behaviour.
+        builder.HasOne(g => g.RibaStageInstance).WithMany().HasForeignKey(g => g.RibaStageInstanceId).OnDelete(DeleteBehavior.Restrict);
         builder.HasMany(g => g.Approvals).WithOne(a => a.Gateway).HasForeignKey(a => a.GatewayId);
     }
 }

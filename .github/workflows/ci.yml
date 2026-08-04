@@ -22,6 +22,40 @@ jobs:
       - name: Test
         run: dotnet test tests/SCPM.UnitTests/SCPM.UnitTests.csproj --no-build -c Release --logger "trx"
 
+  migrate:
+    name: Apply EF Core migrations to a real SQL Server
+    runs-on: ubuntu-latest
+    # Compiling a migration proves it's syntactically valid C#; it does not prove the SQL it
+    # generates is valid. This job runs `dotnet ef database update` against a real SQL Server
+    # service container — this is exactly how Phase 5 caught a genuine "multiple cascade paths"
+    # error (SQL Server error 1785) that a clean `dotnet build` had no way to see.
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Ci_Passw0rd!"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Ci_Passw0rd!' -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 9.0.0
+      - name: dotnet ef database update
+        working-directory: src/Api
+        run: |
+          dotnet ef database update \
+            --project SCPM.Infrastructure --startup-project SCPM.Api \
+            --connection "Server=127.0.0.1,1433;Database=SCPM;User Id=sa;Password=Ci_Passw0rd!;TrustServerCertificate=True"
+
   web:
     name: Build & lint Web
     runs-on: ubuntu-latest

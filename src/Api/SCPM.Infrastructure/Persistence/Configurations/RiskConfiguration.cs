@@ -80,8 +80,10 @@ public class EscalationConfiguration : IEntityTypeConfiguration<Escalation>
         builder.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
 
         builder.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId);
-        builder.HasOne(e => e.Risk).WithMany().HasForeignKey(e => e.RiskId);
-        builder.HasOne(e => e.Issue).WithMany().HasForeignKey(e => e.IssueId);
+        // Risk/Issue also cascade from Project, so these need Restrict — same multiple-cascade-
+        // paths issue as Gateway.RibaStageInstance (see GovernanceConfiguration).
+        builder.HasOne(e => e.Risk).WithMany().HasForeignKey(e => e.RiskId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.Issue).WithMany().HasForeignKey(e => e.IssueId).OnDelete(DeleteBehavior.Restrict);
 
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_Escalation_ExactlyOneSource",

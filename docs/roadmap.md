@@ -49,8 +49,27 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 
 ## Phase 5 — Document Management & SharePoint/Blob Integration
 
-- Documents/Versions/Files model, versioning state machine (Draft → Review → Approved → Superseded/Archived/Rejected)
-- SharePoint Online integration (Graph API), Azure Blob archive tier
+- [x] Document/DocumentVersion/DocumentFile model — versions are never overwritten: approving a
+      draft bumps its own row to the next major version in place (1.2 Draft -> 2.0 Approved),
+      and any previously Approved version moves to Superseded. Physical files are immutable
+      per-version rows, one per exported format. API + Documents tab (master/detail: pick a
+      document, see its version history, upload files, approve/reject/archive).
+- [x] `ISharePointDocumentStore` / `IBlobArchiveStore` abstractions with real implementations
+      (`GraphSharePointDocumentStore` via Microsoft Graph, `AzureBlobArchiveStore` via
+      Azure.Storage.Blobs) — compiled against the actual SDKs (verified via reflection against
+      the installed Microsoft.Graph package, not guessed) but not exercised against a live
+      SharePoint tenant, since this environment has none.
+- [x] **This phase got real infrastructure to test against for the first time**: a .NET 9 SDK
+      and a SQL Server 2022 container. `dotnet ef database update` against that live database
+      caught a genuine bug no compiler could — three spots (`Gateway.RibaStageInstance`,
+      `Escalation.Risk`/`Issue`, `DocumentVersion.Snapshot`) had multiple cascade delete paths
+      converging on `Project`, which SQL Server rejects at `CREATE TABLE` time (error 1785).
+      Fixed with `OnDelete(DeleteBehavior.Restrict)` on the redundant FK in each case. The
+      migration now applies cleanly to a real database — verified, not assumed — and the CI
+      pipeline gained a job that does this on every push so it can't regress silently.
+- [ ] SharePoint/Blob integration is unverified beyond "compiles against the real SDK types" —
+      needs a real Entra ID app registration + SharePoint site + storage account to actually
+      exercise the upload/archive round trip.
 
 ## Phase 6 — Committee, Stakeholder & Executive Reporting Centre
 

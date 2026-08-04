@@ -132,10 +132,14 @@ erDiagram
 - **SBCC**: `Variation` (temporal — Instructed → Priced → Agreed), `ExtensionOfTime` (temporal — days claimed vs. awarded), `LossAndExpenseClaim` (temporal), `ArchitectsInstruction` (temporal — sequential `InstructionNumber` unique per project), `InterimValuation` (temporal — sequential `ValuationNumber`, gross valuation + net payment).
 - Export packs (PDF/DOCX/XLSX per register) remain deferred to Phase 6, alongside the rest of the template/export engine — see `docs/roadmap.md`.
 
-## Phase 5+ — Remaining Schemas (design-level, not yet implemented)
+## Phase 5 — Implemented
+
+- **Documents**: `Document` (temporal — logical record: title/category/RIBA stage) → `DocumentVersion` (temporal — `MajorVersion`/`MinorVersion`, `Status`: Draft/Review/Approved/Superseded/Archived/Rejected; approving bumps the *same row* to the next major version rather than inserting a new one, see `docs/roadmap.md` Phase 5) → `DocumentFile` (not temporal — an immutable physical file per exported format, metadata in SQL, content in SharePoint Online via `ISharePointDocumentStore`, archived copies in Azure Blob via `IBlobArchiveStore` once a version is Archived).
+- A real SQL Server catch worth recording here: `DocumentVersion.SnapshotId` needed `OnDelete(DeleteBehavior.Restrict)` — without it, `DocumentVersion -> Document -> Project` and `DocumentVersion -> Snapshot -> Project` are two cascade-delete paths converging on the same `Project` row, which SQL Server refuses to create. The same issue existed (and was fixed the same way) on `Governance.Gateway.RibaStageInstanceId` and `Risk.Escalation.RiskId`/`IssueId` — any FK to another entity that itself cascades from `Project`, added alongside a direct `ProjectId` FK, needs `Restrict`.
+
+## Phase 6+ — Remaining Schemas (design-level, not yet implemented)
 
 - **Cost**: `Budget`, `BudgetApproval`, `ForecastLine`, `FundingSource`, `FundingAllocation`.
-- **Documents**: `Document` (logical record) → `DocumentVersion` (1.0 Draft, 1.1 Draft, 2.0 Approved, ...) → `File` (physical export, SharePoint/Blob pointer). Status enum: Draft, Review, Approved, Superseded, Archived, Rejected.
 - **Handover**: `AssetRegisterItem`, `OMTrackerItem`, `TrainingLogItem`, `LessonLearned`, `BenefitRealisation`.
 
 > **Naming note**: the spec uses "Programme" for both the portfolio-level grouping of projects (a capital programme, e.g. "Schools Estate Programme") and the project-level delivery schedule (a Gantt/milestone programme). These are modelled as two distinct entities — `Projects.Programme` (portfolio) and `Programme.Programme` (schedule) — to avoid ambiguity; the schema name disambiguates them.

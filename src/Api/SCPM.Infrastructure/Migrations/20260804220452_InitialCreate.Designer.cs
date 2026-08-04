@@ -12,7 +12,7 @@ using SCPM.Infrastructure.Persistence;
 namespace SCPM.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260804214634_InitialCreate")]
+    [Migration("20260804220452_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -686,6 +686,206 @@ namespace SCPM.Infrastructure.Migrations
                     b.ToTable(tb => tb.IsTemporal(ttb =>
                             {
                                 ttb.UseHistoryTable("DecisionRegisterEntry_History", "Governance");
+                                ttb
+                                    .HasPeriodStart("SysStartTime")
+                                    .HasColumnName("SysStartTime");
+                                ttb
+                                    .HasPeriodEnd("SysEndTime")
+                                    .HasColumnName("SysEndTime");
+                            }));
+                });
+
+            modelBuilder.Entity("SCPM.Domain.Entities.Document", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte?>("RibaStageNumber")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTime>("SysEndTime")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("SysEndTime");
+
+                    b.Property<DateTime>("SysStartTime")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("SysStartTime");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("Document", "Documents");
+
+                    b.ToTable(tb => tb.IsTemporal(ttb =>
+                            {
+                                ttb.UseHistoryTable("Document_History", "Documents");
+                                ttb
+                                    .HasPeriodStart("SysStartTime")
+                                    .HasColumnName("SysStartTime");
+                                ttb
+                                    .HasPeriodEnd("SysEndTime")
+                                    .HasColumnName("SysEndTime");
+                            }));
+                });
+
+            modelBuilder.Entity("SCPM.Domain.Entities.DocumentFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BlobArchiveUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DocumentVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("FileType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SharePointUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentVersionId");
+
+                    b.ToTable("DocumentFile", "Documents");
+                });
+
+            modelBuilder.Entity("SCPM.Domain.Entities.DocumentVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MajorVersion")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinorVersion")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SnapshotId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("SysEndTime")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("SysEndTime");
+
+                    b.Property<DateTime>("SysStartTime")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("SysStartTime");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SnapshotId");
+
+                    b.HasIndex("DocumentId", "MajorVersion", "MinorVersion")
+                        .IsUnique();
+
+                    b.ToTable("DocumentVersion", "Documents");
+
+                    b.ToTable(tb => tb.IsTemporal(ttb =>
+                            {
+                                ttb.UseHistoryTable("DocumentVersion_History", "Documents");
                                 ttb
                                     .HasPeriodStart("SysStartTime")
                                     .HasColumnName("SysStartTime");
@@ -2681,6 +2881,46 @@ namespace SCPM.Infrastructure.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("SCPM.Domain.Entities.Document", b =>
+                {
+                    b.HasOne("SCPM.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("SCPM.Domain.Entities.DocumentFile", b =>
+                {
+                    b.HasOne("SCPM.Domain.Entities.DocumentVersion", "DocumentVersion")
+                        .WithMany("Files")
+                        .HasForeignKey("DocumentVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DocumentVersion");
+                });
+
+            modelBuilder.Entity("SCPM.Domain.Entities.DocumentVersion", b =>
+                {
+                    b.HasOne("SCPM.Domain.Entities.Document", "Document")
+                        .WithMany("Versions")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SCPM.Domain.Entities.Snapshot", "Snapshot")
+                        .WithMany()
+                        .HasForeignKey("SnapshotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Document");
+
+                    b.Navigation("Snapshot");
+                });
+
             modelBuilder.Entity("SCPM.Domain.Entities.EarlyWarning", b =>
                 {
                     b.HasOne("SCPM.Domain.Entities.Project", "Project")
@@ -2696,7 +2936,8 @@ namespace SCPM.Infrastructure.Migrations
                 {
                     b.HasOne("SCPM.Domain.Entities.Issue", "Issue")
                         .WithMany()
-                        .HasForeignKey("IssueId");
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("SCPM.Domain.Entities.Project", "Project")
                         .WithMany()
@@ -2706,7 +2947,8 @@ namespace SCPM.Infrastructure.Migrations
 
                     b.HasOne("SCPM.Domain.Entities.Risk", "Risk")
                         .WithMany()
-                        .HasForeignKey("RiskId");
+                        .HasForeignKey("RiskId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Issue");
 
@@ -2757,7 +2999,7 @@ namespace SCPM.Infrastructure.Migrations
                     b.HasOne("SCPM.Domain.Entities.RibaStageInstance", "RibaStageInstance")
                         .WithMany()
                         .HasForeignKey("RibaStageInstanceId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Project");
@@ -2955,6 +3197,16 @@ namespace SCPM.Infrastructure.Migrations
             modelBuilder.Entity("SCPM.Domain.Entities.CostPlan", b =>
                 {
                     b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("SCPM.Domain.Entities.Document", b =>
+                {
+                    b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("SCPM.Domain.Entities.DocumentVersion", b =>
+                {
+                    b.Navigation("Files");
                 });
 
             modelBuilder.Entity("SCPM.Domain.Entities.Gateway", b =>

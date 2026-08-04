@@ -40,6 +40,9 @@ public interface IAppDbContext
     DbSet<LossAndExpenseClaim> LossAndExpenseClaims { get; }
     DbSet<ArchitectsInstruction> ArchitectsInstructions { get; }
     DbSet<InterimValuation> InterimValuations { get; }
+    DbSet<Document> Documents { get; }
+    DbSet<DocumentVersion> DocumentVersions { get; }
+    DbSet<DocumentFile> DocumentFiles { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

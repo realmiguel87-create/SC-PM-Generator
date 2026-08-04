@@ -42,6 +42,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<LossAndExpenseClaim> LossAndExpenseClaims => Set<LossAndExpenseClaim>();
     public DbSet<ArchitectsInstruction> ArchitectsInstructions => Set<ArchitectsInstruction>();
     public DbSet<InterimValuation> InterimValuations => Set<InterimValuation>();
+    public DbSet<Document> Documents => Set<Document>();
+    public DbSet<DocumentVersion> DocumentVersions => Set<DocumentVersion>();
+    public DbSet<DocumentFile> DocumentFiles => Set<DocumentFile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -76,6 +79,8 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<LossAndExpenseClaim>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<ArchitectsInstruction>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<InterimValuation>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<Document>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<DocumentVersion>().HasQueryFilter(e => !e.IsDeleted);
 
         base.OnModelCreating(modelBuilder);
     }

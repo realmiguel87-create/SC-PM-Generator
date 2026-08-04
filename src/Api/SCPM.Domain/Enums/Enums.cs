@@ -1,5 +1,15 @@
 namespace SCPM.Domain.Enums;
 
+public enum DocumentVersionStatus
+{
+    Draft,
+    Review,
+    Approved,
+    Superseded,
+    Archived,
+    Rejected
+}
+
 public enum ProjectStatus
 {
     Active,

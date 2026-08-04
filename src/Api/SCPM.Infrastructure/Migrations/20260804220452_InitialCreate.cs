@@ -29,6 +29,9 @@ namespace SCPM.Infrastructure.Migrations
                 name: "Cost");
 
             migrationBuilder.EnsureSchema(
+                name: "Documents");
+
+            migrationBuilder.EnsureSchema(
                 name: "Risk");
 
             migrationBuilder.EnsureSchema(
@@ -534,6 +537,45 @@ namespace SCPM.Infrastructure.Migrations
                 .Annotation("SqlServer:IsTemporal", true)
                 .Annotation("SqlServer:TemporalHistoryTableName", "DecisionRegisterEntry_History")
                 .Annotation("SqlServer:TemporalHistoryTableSchema", "Governance")
+                .Annotation("SqlServer:TemporalPeriodEndColumnName", "SysEndTime")
+                .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
+
+            migrationBuilder.CreateTable(
+                name: "Document",
+                schema: "Documents",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    RibaStageNumber = table.Column<byte>(type: "tinyint", nullable: true),
+                    Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Category = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    SysEndTime = table.Column<DateTime>(type: "datetime2", nullable: false)
+                        .Annotation("SqlServer:TemporalIsPeriodEndColumn", true),
+                    SysStartTime = table.Column<DateTime>(type: "datetime2", nullable: false)
+                        .Annotation("SqlServer:TemporalIsPeriodStartColumn", true),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ModifiedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ModifiedDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DeletedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Document", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Document_Project_ProjectId",
+                        column: x => x.ProjectId,
+                        principalSchema: "Projects",
+                        principalTable: "Project",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("SqlServer:IsTemporal", true)
+                .Annotation("SqlServer:TemporalHistoryTableName", "Document_History")
+                .Annotation("SqlServer:TemporalHistoryTableSchema", "Documents")
                 .Annotation("SqlServer:TemporalPeriodEndColumnName", "SysEndTime")
                 .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
 
@@ -1244,7 +1286,7 @@ namespace SCPM.Infrastructure.Migrations
                         principalSchema: "Projects",
                         principalTable: "RibaStageInstance",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 })
                 .Annotation("SqlServer:IsTemporal", true)
                 .Annotation("SqlServer:TemporalHistoryTableName", "Gateway_History")
@@ -1289,7 +1331,8 @@ namespace SCPM.Infrastructure.Migrations
                         column: x => x.IssueId,
                         principalSchema: "Risk",
                         principalTable: "Issue",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Escalation_Project_ProjectId",
                         column: x => x.ProjectId,
@@ -1302,11 +1345,59 @@ namespace SCPM.Infrastructure.Migrations
                         column: x => x.RiskId,
                         principalSchema: "Risk",
                         principalTable: "Risk",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 })
                 .Annotation("SqlServer:IsTemporal", true)
                 .Annotation("SqlServer:TemporalHistoryTableName", "Escalation_History")
                 .Annotation("SqlServer:TemporalHistoryTableSchema", "Risk")
+                .Annotation("SqlServer:TemporalPeriodEndColumnName", "SysEndTime")
+                .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
+
+            migrationBuilder.CreateTable(
+                name: "DocumentVersion",
+                schema: "Documents",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    DocumentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    MajorVersion = table.Column<int>(type: "int", nullable: false),
+                    MinorVersion = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    SnapshotId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    SysEndTime = table.Column<DateTime>(type: "datetime2", nullable: false)
+                        .Annotation("SqlServer:TemporalIsPeriodEndColumn", true),
+                    SysStartTime = table.Column<DateTime>(type: "datetime2", nullable: false)
+                        .Annotation("SqlServer:TemporalIsPeriodStartColumn", true),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ModifiedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ModifiedDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DeletedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DocumentVersion", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DocumentVersion_Document_DocumentId",
+                        column: x => x.DocumentId,
+                        principalSchema: "Documents",
+                        principalTable: "Document",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_DocumentVersion_Snapshot_SnapshotId",
+                        column: x => x.SnapshotId,
+                        principalSchema: "Reporting",
+                        principalTable: "Snapshot",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                })
+                .Annotation("SqlServer:IsTemporal", true)
+                .Annotation("SqlServer:TemporalHistoryTableName", "DocumentVersion_History")
+                .Annotation("SqlServer:TemporalHistoryTableSchema", "Documents")
                 .Annotation("SqlServer:TemporalPeriodEndColumnName", "SysEndTime")
                 .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
 
@@ -1377,6 +1468,36 @@ namespace SCPM.Infrastructure.Migrations
                 .Annotation("SqlServer:TemporalHistoryTableSchema", "Governance")
                 .Annotation("SqlServer:TemporalPeriodEndColumnName", "SysEndTime")
                 .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
+
+            migrationBuilder.CreateTable(
+                name: "DocumentFile",
+                schema: "Documents",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    DocumentVersionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    FileType = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Category = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    FileName = table.Column<string>(type: "nvarchar(260)", maxLength: 260, nullable: false),
+                    SharePointUrl = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    BlobArchiveUrl = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    SizeBytes = table.Column<long>(type: "bigint", nullable: false),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CreatedDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ModifiedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ModifiedDate = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DocumentFile", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DocumentFile_DocumentVersion_DocumentVersionId",
+                        column: x => x.DocumentVersionId,
+                        principalSchema: "Documents",
+                        principalTable: "DocumentVersion",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
 
             migrationBuilder.InsertData(
                 schema: "Projects",
@@ -1468,6 +1589,31 @@ namespace SCPM.Infrastructure.Migrations
                 schema: "Governance",
                 table: "DecisionRegisterEntry",
                 columns: new[] { "ProjectId", "DecisionDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Document_ProjectId",
+                schema: "Documents",
+                table: "Document",
+                column: "ProjectId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DocumentFile_DocumentVersionId",
+                schema: "Documents",
+                table: "DocumentFile",
+                column: "DocumentVersionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DocumentVersion_DocumentId_MajorVersion_MinorVersion",
+                schema: "Documents",
+                table: "DocumentVersion",
+                columns: new[] { "DocumentId", "MajorVersion", "MinorVersion" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DocumentVersion_SnapshotId",
+                schema: "Documents",
+                table: "DocumentVersion",
+                column: "SnapshotId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_EarlyWarning_ProjectId",
@@ -1732,6 +1878,10 @@ namespace SCPM.Infrastructure.Migrations
                 .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
 
             migrationBuilder.DropTable(
+                name: "DocumentFile",
+                schema: "Documents");
+
+            migrationBuilder.DropTable(
                 name: "EarlyWarning",
                 schema: "NEC4")
                 .Annotation("SqlServer:IsTemporal", true)
@@ -1834,10 +1984,6 @@ namespace SCPM.Infrastructure.Migrations
                 .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
 
             migrationBuilder.DropTable(
-                name: "Snapshot",
-                schema: "Reporting");
-
-            migrationBuilder.DropTable(
                 name: "StakeholderEngagement",
                 schema: "Stakeholder");
 
@@ -1869,6 +2015,15 @@ namespace SCPM.Infrastructure.Migrations
                 .Annotation("SqlServer:IsTemporal", true)
                 .Annotation("SqlServer:TemporalHistoryTableName", "CostPlan_History")
                 .Annotation("SqlServer:TemporalHistoryTableSchema", "Cost")
+                .Annotation("SqlServer:TemporalPeriodEndColumnName", "SysEndTime")
+                .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
+
+            migrationBuilder.DropTable(
+                name: "DocumentVersion",
+                schema: "Documents")
+                .Annotation("SqlServer:IsTemporal", true)
+                .Annotation("SqlServer:TemporalHistoryTableName", "DocumentVersion_History")
+                .Annotation("SqlServer:TemporalHistoryTableSchema", "Documents")
                 .Annotation("SqlServer:TemporalPeriodEndColumnName", "SysEndTime")
                 .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
 
@@ -1919,6 +2074,19 @@ namespace SCPM.Infrastructure.Migrations
                 .Annotation("SqlServer:TemporalHistoryTableSchema", "Projects")
                 .Annotation("SqlServer:TemporalPeriodEndColumnName", "SysEndTime")
                 .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
+
+            migrationBuilder.DropTable(
+                name: "Document",
+                schema: "Documents")
+                .Annotation("SqlServer:IsTemporal", true)
+                .Annotation("SqlServer:TemporalHistoryTableName", "Document_History")
+                .Annotation("SqlServer:TemporalHistoryTableSchema", "Documents")
+                .Annotation("SqlServer:TemporalPeriodEndColumnName", "SysEndTime")
+                .Annotation("SqlServer:TemporalPeriodStartColumnName", "SysStartTime");
+
+            migrationBuilder.DropTable(
+                name: "Snapshot",
+                schema: "Reporting");
 
             migrationBuilder.DropTable(
                 name: "Project",
