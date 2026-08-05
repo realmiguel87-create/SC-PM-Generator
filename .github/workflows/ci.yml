@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [Artwork-Workflow-Rep]
   pull_request:
-    branches: [main]
+    branches: [Artwork-Workflow-Rep]
 
 jobs:
   api:
