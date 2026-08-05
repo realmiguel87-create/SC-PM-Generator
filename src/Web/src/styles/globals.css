@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Stirling Council premium palette — muted, professional, Fluent/Power BI inspired */
+  --stirling-purple: #675a8f;
+  --stirling-green: #4f8377;
+
+  --purple-light: #dcd7ea;
+  --green-light: #d9e8e3;
+
+  --purple-soft: #f5f3f9;
+  --green-soft: #f2f7f5;
+
+  --background: #f7f8fa;
+  --card: #ffffff;
+  --border: #e3e6ea;
+
+  --text-primary: #343a40;
+  --text-secondary: #5c6770;
+
+  --success: #5f8a74;
+  --warning: #c59b56;
+  --critical: #b86a68;
+  --information: #6e8ca8;
+}
+
+:root[data-theme="dark"] {
+  --background: #1c1d24;
+  --card: #24252e;
+  --border: #35363f;
+  --text-primary: #e7e8ec;
+  --text-secondary: #a7abb4;
+  --purple-soft: #2a2735;
+  --green-soft: #202b28;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+}
