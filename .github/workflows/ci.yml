@@ -56,6 +56,38 @@ jobs:
             --project SCPM.Infrastructure --startup-project SCPM.Api \
             --connection "Server=127.0.0.1,1433;Database=SCPM;User Id=sa;Password=Ci_Passw0rd!;TrustServerCertificate=True"
 
+  integration:
+    name: Integration & RBAC tests (real SQL Server, real ASP.NET Core pipeline)
+    runs-on: ubuntu-latest
+    # WebApplicationFactory boots the actual SCPM.Api host end to end — real DI container, real
+    # RequireRole() policies, real EntraClaimsTransformation — against this service container,
+    # with only Entra ID token validation swapped for a test scheme. This is what caught the
+    # seeded Role.Name values not matching RequireRole()'s policy names for every multi-word
+    # role during Phase 7; that class of bug is invisible to handler-level unit tests, which
+    # never touch ASP.NET Core's authorization pipeline or real role-string matching.
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Ci_Passw0rd!"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Ci_Passw0rd!' -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+      - name: Test
+        env:
+          SCPM_INTEGRATIONTESTS_CONNECTION: "Server=127.0.0.1,1433;Database=SCPM_IntegrationTests;User Id=sa;Password=Ci_Passw0rd!;TrustServerCertificate=True"
+        run: dotnet test tests/SCPM.IntegrationTests/SCPM.IntegrationTests.csproj -c Release --logger "trx"
+
   web:
     name: Build & lint Web
     runs-on: ubuntu-latest

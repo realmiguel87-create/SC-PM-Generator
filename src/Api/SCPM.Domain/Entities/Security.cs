@@ -15,7 +15,16 @@ public class User : BaseEntity
 
 public class Role : BaseEntity
 {
+    /// <summary>Machine-readable identifier — matches SCPM.Domain.Enums.RoleName and every
+    /// RequireRole()/[Authorize(Policy=...)] check in SCPM.Api/Program.cs verbatim (PascalCase,
+    /// no spaces). Authorization matches on this, never on DisplayName.</summary>
     public string Name { get; set; } = default!;
+
+    /// <summary>Human-readable label for UI display (e.g. "Project Sponsor" for Name
+    /// "ProjectSponsor") — kept separate from Name specifically so a friendlier display string
+    /// can never silently break a RequireRole() match the way a single shared field once did.</summary>
+    public string DisplayName { get; set; } = default!;
+
     public string? Description { get; set; }
 }
 

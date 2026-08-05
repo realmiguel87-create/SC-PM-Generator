@@ -91,3 +91,8 @@ public class HangfireAdministratorFilter : IDashboardAuthorizationFilter
         return httpContext.User.Identity?.IsAuthenticated == true && httpContext.User.IsInRole("Administrator");
     }
 }
+
+/// <summary>Exposes the top-level-statements-generated Program class to
+/// WebApplicationFactory&lt;Program&gt; in SCPM.IntegrationTests — otherwise it's internal and
+/// invisible outside this assembly.</summary>
+public partial class Program;

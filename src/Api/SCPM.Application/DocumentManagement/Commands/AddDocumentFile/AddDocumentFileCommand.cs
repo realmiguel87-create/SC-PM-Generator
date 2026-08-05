@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using SCPM.Application.Common;
 using SCPM.Application.Common.Interfaces;
 using SCPM.Domain.Entities;
 
@@ -34,15 +35,21 @@ public class AddDocumentFileCommandHandler : IRequestHandler<AddDocumentFileComm
 
         var sizeBytes = request.Content.CanSeek ? request.Content.Length : 0;
 
+        // Sanitised once, here, at the point the client-supplied name is first accepted — every
+        // downstream consumer (the SharePoint upload path below, and the Azure Blob archive path
+        // ArchiveVersionCommand builds later from this same stored FileName) inherits the safe
+        // value instead of needing its own defence against "../" path traversal.
+        var safeFileName = FileNameSanitizer.Sanitise(request.FileName);
+
         var sharePointUrl = await _sharePointStore.UploadAsync(
-            version.Document.Project.ProjectRef, request.FileName, request.Content, request.ContentType, cancellationToken);
+            version.Document.Project.ProjectRef, safeFileName, request.Content, request.ContentType, cancellationToken);
 
         var file = new DocumentFile
         {
             DocumentVersionId = request.DocumentVersionId,
             FileType = request.FileType,
             Category = request.Category,
-            FileName = request.FileName,
+            FileName = safeFileName,
             SharePointUrl = sharePointUrl,
             SizeBytes = sizeBytes,
             CreatedBy = _currentUser.UserId ?? Guid.Empty

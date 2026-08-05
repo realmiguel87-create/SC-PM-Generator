@@ -27,9 +27,18 @@ public class GraphSharePointDocumentStore : ISharePointDocumentStore
 
     public async Task<string> UploadAsync(string projectRef, string fileName, Stream content, string contentType, CancellationToken cancellationToken)
     {
+        // fileName is client-controlled (the multipart upload's original file name — see
+        // AddDocumentFileCommand / DocumentsController). Passed unsanitised, "../../other-
+        // project/secret.pdf" would let a caller write outside the intended project folder via
+        // ItemWithPath's path resolution — a real path-traversal risk, not a theoretical one.
+        // SanitiseFileName keeps only the base file name, matching how any OS file picker
+        // behaves and how AzureBlobArchiveStore's blobPath (built from this same stored
+        // FileName) needs it to behave too.
+        var safeFileName = SanitiseFileName(fileName);
+
         // GUID-prefixed so two uploads for the same document/filename can never collide —
         // "never overwrite files" (docs/erd.md) applies at the SharePoint layer too, not just SQL.
-        var path = $"{projectRef}/{Guid.NewGuid():N}-{fileName}";
+        var path = $"{projectRef}/{Guid.NewGuid():N}-{safeFileName}";
 
         // Sites[id].Drive only exposes GetAsync (it's the site's drive *reference*, not the
         // drive's own item tree) — the Root/ItemWithPath navigation lives under Drives[driveId].
@@ -44,5 +53,18 @@ public class GraphSharePointDocumentStore : ISharePointDocumentStore
 
         return driveItem?.WebUrl
             ?? throw new InvalidOperationException($"SharePoint upload of '{path}' did not return a file URL.");
+    }
+
+    /// <summary>Strips any directory component from a client-supplied file name, defending
+    /// against path traversal ("../", "..\\", leading "/") regardless of which separator the
+    /// uploading client's OS uses. Kept as its own testable static method rather than inlined.</summary>
+    internal static string SanitiseFileName(string fileName)
+    {
+        var name = fileName.Replace('\\', '/');
+        var lastSlash = name.LastIndexOf('/');
+        if (lastSlash >= 0)
+            name = name[(lastSlash + 1)..];
+
+        return string.IsNullOrWhiteSpace(name) ? "unnamed-file" : name;
     }
 }

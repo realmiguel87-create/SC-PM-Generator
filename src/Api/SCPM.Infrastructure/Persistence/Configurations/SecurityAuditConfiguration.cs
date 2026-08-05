@@ -35,23 +35,32 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
     {
         builder.ToTable("Role", "Security");
         builder.Property(r => r.Name).HasMaxLength(100).IsRequired();
+        builder.Property(r => r.DisplayName).HasMaxLength(100).IsRequired();
         builder.HasIndex(r => r.Name).IsUnique();
 
         // CreatedDate is pinned (not DateTime.UtcNow) so re-running `dotnet ef migrations add`
         // reproduces byte-identical seed data instead of baking in "now" as a migration constant.
         var seededAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        // Name MUST match SCPM.Domain.Enums.RoleName and every RequireRole()/[Authorize] check in
+        // SCPM.Api/Program.cs exactly (PascalCase, no spaces) — these are what RBAC actually
+        // matches on. DisplayName carries the human-readable label for UI use. A prior version of
+        // this seed used the display text as Name itself ("Project Sponsor" etc.), which silently
+        // never matched any RequireRole("ProjectSponsor") policy for every multi-word role —
+        // caught only by an integration test that exercised the real ASP.NET Core authorization
+        // pipeline end to end (SCPM.IntegrationTests/RbacTests.cs), not by unit tests that mock
+        // ICurrentUserService and never touch role-string matching at all.
         builder.HasData(
-            new Role { Id = AdministratorId, Name = "Administrator", Description = "Full platform administration", CreatedBy = Guid.Empty, CreatedDate = seededAt },
-            new Role { Id = DirectorId, Name = "Director", Description = "Portfolio-wide oversight and approval", CreatedBy = Guid.Empty, CreatedDate = seededAt },
-            new Role { Id = ProjectSponsorId, Name = "Project Sponsor", Description = "Accountable owner for assigned project(s)", CreatedBy = Guid.Empty, CreatedDate = seededAt },
-            new Role { Id = ProgrammeManagerId, Name = "Programme Manager", Description = "Manages a capital programme (group of projects)", CreatedBy = Guid.Empty, CreatedDate = seededAt },
-            new Role { Id = ProjectManagerId, Name = "Project Manager", Description = "Day-to-day delivery of assigned project(s)", CreatedBy = Guid.Empty, CreatedDate = seededAt },
-            new Role { Id = CommercialManagerId, Name = "Commercial Manager", Description = "NEC4/SBCC contract administration", CreatedBy = Guid.Empty, CreatedDate = seededAt },
-            new Role { Id = QuantitySurveyorId, Name = "Quantity Surveyor", Description = "Cost management and valuations", CreatedBy = Guid.Empty, CreatedDate = seededAt },
-            new Role { Id = GovernanceOfficerId, Name = "Governance Officer", Description = "Gateway/approval process administration", CreatedBy = Guid.Empty, CreatedDate = seededAt },
-            new Role { Id = CommitteeOfficerId, Name = "Committee Officer", Description = "Committee and cabinet reporting", CreatedBy = Guid.Empty, CreatedDate = seededAt },
-            new Role { Id = ReadOnlyUserId, Name = "Read Only User", Description = "View-only access", CreatedBy = Guid.Empty, CreatedDate = seededAt }
+            new Role { Id = AdministratorId, Name = "Administrator", DisplayName = "Administrator", Description = "Full platform administration", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = DirectorId, Name = "Director", DisplayName = "Director", Description = "Portfolio-wide oversight and approval", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = ProjectSponsorId, Name = "ProjectSponsor", DisplayName = "Project Sponsor", Description = "Accountable owner for assigned project(s)", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = ProgrammeManagerId, Name = "ProgrammeManager", DisplayName = "Programme Manager", Description = "Manages a capital programme (group of projects)", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = ProjectManagerId, Name = "ProjectManager", DisplayName = "Project Manager", Description = "Day-to-day delivery of assigned project(s)", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = CommercialManagerId, Name = "CommercialManager", DisplayName = "Commercial Manager", Description = "NEC4/SBCC contract administration", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = QuantitySurveyorId, Name = "QuantitySurveyor", DisplayName = "Quantity Surveyor", Description = "Cost management and valuations", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = GovernanceOfficerId, Name = "GovernanceOfficer", DisplayName = "Governance Officer", Description = "Gateway/approval process administration", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = CommitteeOfficerId, Name = "CommitteeOfficer", DisplayName = "Committee Officer", Description = "Committee and cabinet reporting", CreatedBy = Guid.Empty, CreatedDate = seededAt },
+            new Role { Id = ReadOnlyUserId, Name = "ReadOnlyUser", DisplayName = "Read Only User", Description = "View-only access", CreatedBy = Guid.Empty, CreatedDate = seededAt }
         );
     }
 }
