@@ -104,3 +104,30 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+
+  web-e2e-smoke:
+    name: Playwright smoke test (Web)
+    runs-on: ubuntu-latest
+    # Frontend-only smoke test — no backend API is started (MSAL auth isn't wired into the
+    # frontend yet, so even a live API would 401 every request here; see
+    # src/Web/playwright.config.ts for the full reasoning). This verifies the built app boots
+    # and every top-level route is navigable without an uncaught error, which unit/integration
+    # tests can't: those never load the app in an actual browser.
+    defaults:
+      run:
+        working-directory: src/Web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: src/Web/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Built as its own step, separate from `npx playwright test` below — chaining build+preview
+      # inside Playwright's webServer.command hid a hang behind one opaque "timed out waiting for
+      # server" failure with no way to tell which half was stuck. This way a build problem fails
+      # here, visibly, before Playwright ever starts.
+      - run: npm run build
+      - run: npx playwright test
