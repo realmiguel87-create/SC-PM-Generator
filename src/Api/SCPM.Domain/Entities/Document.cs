@@ -45,8 +45,9 @@ public class DocumentVersion : SoftDeletableEntity
 
 /// <summary>
 /// A physical exported file backing a DocumentVersion — metadata lives here in SQL Server, the
-/// file itself in SharePoint Online (or, once superseded/archived, Azure Blob Storage). See
-/// docs/architecture.md §9 and the ISharePointDocumentStore / IBlobArchiveStore interfaces.
+/// file itself in Azure Blob Storage (the active-tier container, or once superseded/archived, the
+/// separate archive-tier container). See docs/architecture.md §9 and the IDocumentStore /
+/// IBlobArchiveStore interfaces.
 /// </summary>
 public class DocumentFile : BaseEntity
 {
@@ -57,7 +58,7 @@ public class DocumentFile : BaseEntity
     public string Category { get; set; } = default!;
     public string FileName { get; set; } = default!;
 
-    public string? SharePointUrl { get; set; }
+    public string? StorageUrl { get; set; }
     public string? BlobArchiveUrl { get; set; }
     public long SizeBytes { get; set; }
 }

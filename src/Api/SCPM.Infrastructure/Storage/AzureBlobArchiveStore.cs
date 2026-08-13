@@ -5,36 +5,43 @@ using SCPM.Application.Common.Interfaces;
 namespace SCPM.Infrastructure.Storage;
 
 /// <summary>
-/// The archive tier: pulls a file from its current SharePoint URL and copies it into Azure Blob
-/// Storage. Downloading via HttpClient rather than Graph's drive-item content API keeps this
-/// class decoupled from ISharePointDocumentStore's implementation — it only needs a URL a
-/// bearer-token-authenticated request can read, which is what SharePoint's WebUrl gives it via
-/// the same Graph-issued access already covering the site.
+/// The archive tier: copies a file from the active-tier container (AzureBlobDocumentStore) into
+/// the archive container, both in the same storage account. Uses the Blob SDK's own
+/// authenticated container/blob clients on both ends rather than an anonymous HTTP GET on the
+/// source URL — the active-tier container is not public, so a plain HttpClient request against
+/// its blob URL would 403 rather than actually read the file.
 /// </summary>
 public class AzureBlobArchiveStore : IBlobArchiveStore
 {
-    private readonly BlobContainerClient _containerClient;
-    private readonly HttpClient _httpClient;
+    private readonly BlobServiceClient _serviceClient;
+    private readonly BlobContainerClient _archiveContainerClient;
 
-    public AzureBlobArchiveStore(IOptions<BlobArchiveOptions> options, IHttpClientFactory httpClientFactory)
+    public AzureBlobArchiveStore(IOptions<BlobStorageOptions> options)
     {
         var opts = options.Value;
-        var serviceClient = new BlobServiceClient(opts.ConnectionString);
-        _containerClient = serviceClient.GetBlobContainerClient(opts.ContainerName);
-        _httpClient = httpClientFactory.CreateClient(nameof(AzureBlobArchiveStore));
+        _serviceClient = new BlobServiceClient(opts.ConnectionString);
+        _archiveContainerClient = _serviceClient.GetBlobContainerClient(opts.ArchiveContainerName);
     }
 
-    public async Task<string> ArchiveAsync(string sourceSharePointUrl, string blobPath, CancellationToken cancellationToken)
+    public async Task<string> ArchiveAsync(string sourceUrl, string blobPath, CancellationToken cancellationToken)
     {
-        await _containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
-        var blobClient = _containerClient.GetBlobClient(blobPath);
+        await _archiveContainerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
-        using var response = await _httpClient.GetAsync(sourceSharePointUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        // sourceUrl is one of our own active-tier blob URLs (see AzureBlobDocumentStore) —
+        // "https://{account}.blob.core.windows.net/{container}/{blobName...}". Parsed back into
+        // container + blob name so the copy can go through our own authenticated
+        // BlobServiceClient rather than treating the URL as a public link.
+        var path = new Uri(sourceUrl).AbsolutePath.TrimStart('/');
+        var separatorIndex = path.IndexOf('/');
+        var sourceContainerName = Uri.UnescapeDataString(path[..separatorIndex]);
+        var sourceBlobName = Uri.UnescapeDataString(path[(separatorIndex + 1)..]);
 
-        await using var sourceStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await blobClient.UploadAsync(sourceStream, overwrite: false, cancellationToken);
+        var sourceBlobClient = _serviceClient.GetBlobContainerClient(sourceContainerName).GetBlobClient(sourceBlobName);
+        var destinationBlobClient = _archiveContainerClient.GetBlobClient(blobPath);
 
-        return blobClient.Uri.ToString();
+        await using var sourceStream = await sourceBlobClient.OpenReadAsync(cancellationToken: cancellationToken);
+        await destinationBlobClient.UploadAsync(sourceStream, overwrite: false, cancellationToken);
+
+        return destinationBlobClient.Uri.ToString();
     }
 }

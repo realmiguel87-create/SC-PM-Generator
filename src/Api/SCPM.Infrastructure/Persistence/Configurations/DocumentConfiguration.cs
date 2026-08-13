@@ -59,7 +59,7 @@ public class DocumentFileConfiguration : IEntityTypeConfiguration<DocumentFile>
         builder.Property(f => f.FileType).HasMaxLength(20).IsRequired();
         builder.Property(f => f.Category).HasMaxLength(100).IsRequired();
         builder.Property(f => f.FileName).HasMaxLength(260).IsRequired();
-        builder.Property(f => f.SharePointUrl).HasMaxLength(2000);
+        builder.Property(f => f.StorageUrl).HasMaxLength(2000);
         builder.Property(f => f.BlobArchiveUrl).HasMaxLength(2000);
     }
 }

@@ -6,7 +6,7 @@ public class DocumentFileDto
     public string FileType { get; set; } = default!;
     public string Category { get; set; } = default!;
     public string FileName { get; set; } = default!;
-    public string? SharePointUrl { get; set; }
+    public string? StorageUrl { get; set; }
     public string? BlobArchiveUrl { get; set; }
     public long SizeBytes { get; set; }
     public DateTime CreatedDate { get; set; }

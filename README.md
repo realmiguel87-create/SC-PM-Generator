@@ -14,7 +14,7 @@ This repository is being built in phases (see [`docs/roadmap.md`](docs/roadmap.m
 | Backend | ASP.NET Core 9 Web API, MediatR (CQRS), FluentValidation, EF Core 9 |
 | Database | SQL Server, System-Versioned Temporal Tables, Stored Procedures, Views, Schemas |
 | Auth | Microsoft Entra ID (SSO, OIDC), Role-Based Access Control |
-| Storage | SharePoint Online (primary), Azure Blob Storage (archive) |
+| Storage | Azure Blob Storage (active tier + archive tier) |
 | Reporting | QuestPDF, OpenXML SDK, ClosedXML, Power BI |
 | Background Jobs | Hangfire |
 | Hosting | Azure App Service, Azure SQL, Key Vault, Application Insights |
@@ -32,7 +32,7 @@ src/
     SCPM.Domain/          Entities, enums, domain events — no framework dependencies
     SCPM.Application/     CQRS handlers (MediatR), validators (FluentValidation), DTOs
     SCPM.Infrastructure/  EF Core (+ Migrations, the generated schema source of truth),
-                           SharePoint/Blob clients, report generators, Hangfire jobs
+                           Blob Storage clients, report generators, Hangfire jobs
     SCPM.Api/              Controllers, auth, middleware, composition root
   Web/                    React + TypeScript SPA
 tests/

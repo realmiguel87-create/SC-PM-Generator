@@ -10,7 +10,6 @@ using SCPM.Infrastructure.Identity;
 using SCPM.Infrastructure.Persistence;
 using SCPM.Infrastructure.Persistence.Interceptors;
 using SCPM.Infrastructure.Reporting;
-using SCPM.Infrastructure.SharePoint;
 using SCPM.Infrastructure.Storage;
 
 namespace SCPM.Infrastructure;
@@ -50,10 +49,8 @@ public static class DependencyInjection
         // — can find it and inject the scoped IAppDbContext/ISender it depends on.
         services.AddScoped<SnapshotJobs>();
 
-        services.Configure<SharePointOptions>(configuration.GetSection("SharePoint"));
-        services.Configure<BlobArchiveOptions>(configuration.GetSection("BlobArchive"));
-        services.AddScoped<ISharePointDocumentStore, GraphSharePointDocumentStore>();
-        services.AddHttpClient();
+        services.Configure<BlobStorageOptions>(configuration.GetSection("BlobStorage"));
+        services.AddScoped<IDocumentStore, AzureBlobDocumentStore>();
         services.AddScoped<IBlobArchiveStore, AzureBlobArchiveStore>();
 
         services.AddScoped<ICommitteeReportExporter, CommitteeReportExporter>();

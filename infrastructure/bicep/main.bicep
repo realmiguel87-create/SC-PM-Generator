@@ -1,6 +1,9 @@
 // SC-PM Platform — core Azure infrastructure
-// Deploys: App Service (API), Azure SQL, Key Vault, Storage (Blob archive), Application Insights.
-// SharePoint Online and Entra ID app registrations are provisioned via M365 admin / Graph, not here.
+// Deploys: App Service (API), Azure SQL, Key Vault, Storage (active-tier + archive-tier document
+// containers), Application Insights. The Entra ID app registration used for authentication is
+// provisioned via M365 admin, not here. Documents live entirely in this Storage account — there
+// is no SharePoint dependency (that would need a tenant admin to grant Graph application-
+// permission consent, which is not assumed to be available).
 
 @description('Environment name, e.g. dev, test, prod')
 param environmentName string
