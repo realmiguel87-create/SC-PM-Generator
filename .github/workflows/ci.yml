@@ -125,4 +125,9 @@ jobs:
           cache-dependency-path: src/Web/package-lock.json
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      # Built as its own step, separate from `npx playwright test` below — chaining build+preview
+      # inside Playwright's webServer.command hid a hang behind one opaque "timed out waiting for
+      # server" failure with no way to tell which half was stuck. This way a build problem fails
+      # here, visibly, before Playwright ever starts.
+      - run: npm run build
+      - run: npx playwright test
