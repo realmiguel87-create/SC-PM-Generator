@@ -1,13 +1,29 @@
 /**
- * Thin fetch wrapper. Auth token attachment happens here so every feature
- * hook gets it "for free" once MSAL is wired in (Phase 2 — see docs/roadmap.md);
- * for now it's a pass-through so the UI can be developed against a mock/dev API.
+ * Thin fetch wrapper. Auth token attachment happens here so every feature hook gets it "for
+ * free" — every request goes through acquireAccessToken below.
  */
+import { InteractionRequiredAuthError } from "@azure/msal-browser";
+import { msalInstance } from "@/lib/msal-instance";
+import { loginRequest } from "@/lib/msal-config";
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 async function getAccessToken(): Promise<string | null> {
-  // TODO(Phase 2): acquire token via @azure/msal-browser against the EntraId app registration.
-  return null;
+  const account = msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0];
+  if (!account) return null; // Not signed in — request goes out unauthenticated, API 401s it.
+
+  try {
+    const result = await msalInstance.acquireTokenSilent({ ...loginRequest, account });
+    return result.accessToken;
+  } catch (error) {
+    // Silent acquisition needs an interactive prompt (expired session, revoked consent, etc.).
+    // Deliberately not popping a popup from inside an arbitrary background fetch — that's a
+    // jarring UX from, say, a TanStack Query background refetch. AppShell's sign-in control is
+    // where interactive auth belongs; this just lets the request go out unauthenticated so the
+    // API's 401 surfaces the need to re-authenticate through the normal UI path.
+    if (error instanceof InteractionRequiredAuthError) return null;
+    throw error;
+  }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
