@@ -36,7 +36,14 @@ export default defineConfig({
     // way to tell whether the build or the server was stuck, since both share one timeout and
     // one opaque "Timed out waiting for server" failure. Splitting them gives the build its own
     // pass/fail signal and leaves this command doing only the fast, near-instant part.
-    command: "npm run preview -- --port 4173 --strictPort",
+    //
+    // --host 127.0.0.1 is explicit on purpose: Vite's default `localhost` bind resolves
+    // differently across environments — on the GitHub-hosted runner this ran on, "localhost"
+    // came up IPv6-only (::1), so a plain `vite preview` never became reachable at the literal
+    // 127.0.0.1 URL below, and Playwright's health check just timed out with no error from the
+    // server itself (it was never told anything was wrong). Binding the exact address removes
+    // the DNS-resolution ambiguity instead of guessing at a longer timeout.
+    command: "npm run preview -- --host 127.0.0.1 --port 4173 --strictPort",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
