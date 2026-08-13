@@ -1,6 +1,9 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { useMsal, AuthenticatedTemplate, UnauthenticatedTemplate } from "@azure/msal-react";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, FolderKanban, ShieldCheck, FileBarChart2 } from "lucide-react";
+import { loginRequest } from "@/lib/msal-config";
+import { Button } from "@/components/ui/button";
+import { LayoutDashboard, FolderKanban, ShieldCheck, FileBarChart2, LogIn, LogOut } from "lucide-react";
 
 const navItems = [
   { to: "/", label: "Executive Dashboard", icon: LayoutDashboard, end: true },
@@ -8,6 +11,41 @@ const navItems = [
   { to: "/governance", label: "Governance", icon: ShieldCheck },
   { to: "/reporting", label: "Reporting Centre", icon: FileBarChart2 },
 ];
+
+function AuthControl() {
+  const { instance, accounts } = useMsal();
+
+  return (
+    <div className="border-t border-border p-3">
+      <AuthenticatedTemplate>
+        <div className="flex items-center justify-between gap-2 px-1">
+          <span className="truncate text-xs text-text-secondary" title={accounts[0]?.username}>
+            {accounts[0]?.name ?? accounts[0]?.username}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => instance.logoutPopup()}
+            aria-label="Sign out"
+          >
+            <LogOut size={14} />
+          </Button>
+        </div>
+      </AuthenticatedTemplate>
+      <UnauthenticatedTemplate>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => instance.loginPopup(loginRequest)}
+        >
+          <LogIn size={14} />
+          Sign in
+        </Button>
+      </UnauthenticatedTemplate>
+    </div>
+  );
+}
 
 export function AppShell() {
   return (
@@ -39,6 +77,7 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
+        <AuthControl />
       </aside>
       <main className="flex-1 overflow-y-auto">
         <Outlet />
