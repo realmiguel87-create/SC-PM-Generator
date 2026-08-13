@@ -6,22 +6,22 @@ using SCPM.Domain.Entities;
 
 namespace SCPM.Application.DocumentManagement.Commands.AddDocumentFile;
 
-/// <summary>Uploads a physical file to SharePoint and records it against a document version.
-/// Every call creates a new DocumentFile row — an existing file for that version/type is never
-/// overwritten, matching the "never overwrite files" rule.</summary>
+/// <summary>Uploads a physical file to the document store and records it against a document
+/// version. Every call creates a new DocumentFile row — an existing file for that version/type is
+/// never overwritten, matching the "never overwrite files" rule.</summary>
 public record AddDocumentFileCommand(
     Guid DocumentVersionId, string FileType, string Category, string FileName, Stream Content, string ContentType) : IRequest<Guid>;
 
 public class AddDocumentFileCommandHandler : IRequestHandler<AddDocumentFileCommand, Guid>
 {
     private readonly IAppDbContext _db;
-    private readonly ISharePointDocumentStore _sharePointStore;
+    private readonly IDocumentStore _documentStore;
     private readonly ICurrentUserService _currentUser;
 
-    public AddDocumentFileCommandHandler(IAppDbContext db, ISharePointDocumentStore sharePointStore, ICurrentUserService currentUser)
+    public AddDocumentFileCommandHandler(IAppDbContext db, IDocumentStore documentStore, ICurrentUserService currentUser)
     {
         _db = db;
-        _sharePointStore = sharePointStore;
+        _documentStore = documentStore;
         _currentUser = currentUser;
     }
 
@@ -36,12 +36,12 @@ public class AddDocumentFileCommandHandler : IRequestHandler<AddDocumentFileComm
         var sizeBytes = request.Content.CanSeek ? request.Content.Length : 0;
 
         // Sanitised once, here, at the point the client-supplied name is first accepted — every
-        // downstream consumer (the SharePoint upload path below, and the Azure Blob archive path
+        // downstream consumer (the upload path below, and the Azure Blob archive path
         // ArchiveVersionCommand builds later from this same stored FileName) inherits the safe
         // value instead of needing its own defence against "../" path traversal.
         var safeFileName = FileNameSanitizer.Sanitise(request.FileName);
 
-        var sharePointUrl = await _sharePointStore.UploadAsync(
+        var storageUrl = await _documentStore.UploadAsync(
             version.Document.Project.ProjectRef, safeFileName, request.Content, request.ContentType, cancellationToken);
 
         var file = new DocumentFile
@@ -50,7 +50,7 @@ public class AddDocumentFileCommandHandler : IRequestHandler<AddDocumentFileComm
             FileType = request.FileType,
             Category = request.Category,
             FileName = safeFileName,
-            SharePointUrl = sharePointUrl,
+            StorageUrl = storageUrl,
             SizeBytes = sizeBytes,
             CreatedBy = _currentUser.UserId ?? Guid.Empty
         };

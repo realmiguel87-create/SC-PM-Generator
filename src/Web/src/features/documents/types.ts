@@ -14,7 +14,7 @@ export interface DocumentFile {
   fileType: string;
   category: string;
   fileName: string;
-  sharePointUrl: string | null;
+  storageUrl: string | null;
   blobArchiveUrl: string | null;
   sizeBytes: number;
   createdDate: string;

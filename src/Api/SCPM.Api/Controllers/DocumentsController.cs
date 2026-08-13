@@ -68,8 +68,8 @@ public class DocumentsController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Multipart upload — the file goes to SharePoint (ISharePointDocumentStore), only
-    /// its metadata and resulting URL are persisted in SQL.</summary>
+    /// <summary>Multipart upload — the file goes to the active-tier Blob Storage container
+    /// (IDocumentStore), only its metadata and resulting URL are persisted in SQL.</summary>
     [HttpPost("api/document-versions/{documentVersionId:guid}/files")]
     [Authorize(Policy = "CanWrite")]
     [RequestSizeLimit(50_000_000)]

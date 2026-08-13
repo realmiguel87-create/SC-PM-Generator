@@ -47,7 +47,7 @@ public class GetDocumentVersionsQueryHandler : IRequestHandler<GetDocumentVersio
                     FileType = f.FileType,
                     Category = f.Category,
                     FileName = f.FileName,
-                    SharePointUrl = f.SharePointUrl,
+                    StorageUrl = f.StorageUrl,
                     BlobArchiveUrl = f.BlobArchiveUrl,
                     SizeBytes = f.SizeBytes,
                     CreatedDate = f.CreatedDate

@@ -69,7 +69,10 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
       pipeline gained a job that does this on every push so it can't regress silently.
 - [ ] SharePoint/Blob integration is unverified beyond "compiles against the real SDK types" —
       needs a real Entra ID app registration + SharePoint site + storage account to actually
-      exercise the upload/archive round trip.
+      exercise the upload/archive round trip. **Superseded in Phase 7**: SharePoint's Graph
+      app-only access needs a tenant admin to grant application-permission consent, which turned
+      out not to be obtainable, so the active tier was moved to Azure Blob Storage alongside the
+      archive tier — see Phase 7.
 
 ## Phase 6 — Committee, Stakeholder & Executive Reporting Centre
 
@@ -109,5 +112,14 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 - [ ] UI/E2E test suite — deferred; the frontend has no real MSAL auth wiring yet (documented TODO in `src/Web/src/lib/api-client.ts`), so a real login-through-role-check E2E flow isn't possible yet. A basic Playwright smoke test (app boots, navigates, no console errors) was considered but not completed in this pass.
 - [ ] Load testing at scale — deferred; this sandbox has no environment resembling production scale/network topology, so no load test numbers are claimed. A local Docker-based smoke check would only prove the app doesn't crash under trivial concurrency, not that it performs at £500m-programme scale — not worth presenting as "load testing."
 - [ ] Full CI/CD (security scan stage, per-environment deploy) and disaster recovery runbook — deferred; requires real target environments (dev/test/prod Azure subscriptions) this sandbox does not have.
+
+## Phase 8 — Document Storage: SharePoint → Azure Blob Storage
+
+- [x] **Replaced the SharePoint-backed active tier with Azure Blob Storage.** `ISharePointDocumentStore` / `GraphSharePointDocumentStore` (Microsoft.Graph, app-only auth via `ClientSecretCredential`) are gone. Reason: Graph's application-permission consent (`Sites.ReadWrite.All` or a site-scoped equivalent) has to be granted by a tenant admin, and that consent is not obtainable in this deployment — see GitHub issue #2. A storage account connection string needs no tenant admin, so it replaced SharePoint entirely rather than sitting unresolved.
+- [x] New `IDocumentStore` / `AzureBlobDocumentStore` (renamed from `ISharePointDocumentStore`) is the active tier now; `IBlobArchiveStore` / `AzureBlobArchiveStore` remains the archive tier. Both live in the same storage account (`BlobStorage` config section: one `ConnectionString`, `ActiveContainerName` + `ArchiveContainerName`), which also meant the archive copy could switch from an anonymous `HttpClient` GET against a (would-be-private) SharePoint/Blob URL to an authenticated blob-to-blob copy through the SDK — a real correctness fix, not just a rename, since the old HTTP-GET approach would have 403'd against a non-public active-tier container.
+- [x] `DocumentFile.SharePointUrl` renamed to `StorageUrl` end-to-end (entity, EF configuration + migration, DTOs, query handlers, frontend `types.ts`) rather than keeping a misleading name.
+- [x] Removed the now-unused `Microsoft.Graph` and `Azure.Identity` package references from `SCPM.Infrastructure`.
+- [x] `dotnet build`/unit tests/integration tests re-verified green after the swap; see commit history for the exact migration.
+- [ ] Still not exercised against a real Azure Storage account (only against a live SQL Server, for the EF migration) — a connection string and container names are all that's needed now, no admin consent required. Tracked as an update to GitHub issue #2.
 
 Each phase is designed to be independently shippable and reviewable. Modules from Phase 2 onward follow the same Domain → Application → Infrastructure → Api → Web pattern established in Phase 1.

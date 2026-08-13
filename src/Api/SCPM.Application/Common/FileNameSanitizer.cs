@@ -5,7 +5,7 @@ namespace SCPM.Application.Common;
 /// only caller today — AddDocumentFileCommand) is attacker-controlled: a crafted multipart
 /// upload can set it to "../../other-project/secret.pdf" or similar. Sanitising here, at the
 /// point the name is first accepted and persisted, means every downstream consumer of
-/// DocumentFile.FileName (the SharePoint upload path, the Azure Blob archive path built in
+/// DocumentFile.FileName (the active-tier Blob upload path, the archive-tier Blob path built in
 /// ArchiveVersionCommand) inherits the safe value rather than each needing its own defence.
 /// </summary>
 public static class FileNameSanitizer

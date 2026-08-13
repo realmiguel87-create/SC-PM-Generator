@@ -13,7 +13,7 @@ Non-functional targets:
 
 ## 2. Architectural Style
 
-- **Clean Architecture / Onion** on the backend: `Domain` has zero dependencies; `Application` depends only on `Domain` and defines infrastructure interfaces; `Infrastructure` implements those interfaces (EF Core, SharePoint, Blob, Hangfire, report generators); `Api` is the composition root and HTTP boundary.
+- **Clean Architecture / Onion** on the backend: `Domain` has zero dependencies; `Application` depends only on `Domain` and defines infrastructure interfaces; `Infrastructure` implements those interfaces (EF Core, Blob Storage, Hangfire, report generators); `Api` is the composition root and HTTP boundary.
 - **CQRS via MediatR**: every use case is a `Command` or `Query` handled by a single handler. `FluentValidation` validators run as a MediatR pipeline behaviour before the handler executes. This keeps controllers thin and makes every action independently testable and auditable.
 - **Vertical slices per module**: Governance, Cost, Programme, Risk, Stakeholder, Documents, NEC4, SBCC, Reporting, Handover and Audit are each a folder of commands/queries/handlers/validators/DTOs under `Application`, not a shared "service layer" — this keeps modules independently extensible as the programme grows.
 - **Event-sourced-adjacent audit**: rather than full event sourcing, the platform uses SQL Server **temporal tables** for entity-level history plus an explicit **Audit** schema (`ActivityLog`, `FieldAudit`) for who/why. This gives point-in-time reconstruction (`FOR SYSTEM_TIME AS OF`) without the operational complexity of a full event store, which is the right trade-off for a reporting- and compliance-heavy domain rather than a high-write-throughput one.
@@ -33,14 +33,13 @@ flowchart TB
             Hangfire["Hangfire Server<br/>(background jobs)"]
         end
         SQL[("Azure SQL Database<br/>Temporal Tables")]
-        Blob[("Azure Blob Storage<br/>Archive")]
+        Blob[("Azure Blob Storage<br/>Active tier + Archive tier")]
         KV["Key Vault"]
         AI["Application Insights"]
     end
 
     subgraph M365["Microsoft 365"]
         Entra["Microsoft Entra ID<br/>(SSO / OIDC)"]
-        SPO["SharePoint Online<br/>(primary document store)"]
         PBI["Power BI"]
     end
 
@@ -48,12 +47,11 @@ flowchart TB
     SPA -- SSO redirect --> Entra
     API -- validates token --> Entra
     API -- EF Core --> SQL
-    API -- Graph API --> SPO
     API -- SDK --> Blob
     API -- secrets --> KV
     API -- telemetry --> AI
     Hangfire -- scheduled jobs --> SQL
-    Hangfire -- snapshot/export --> SPO
+    Hangfire -- snapshot/export --> Blob
     Hangfire -- archive --> Blob
     SQL -- datasets --> PBI
 ```
@@ -65,7 +63,7 @@ SCPM.Domain          Entities, value objects, domain events, enums. No NuGet dep
 SCPM.Application      MediatR commands/queries + handlers, FluentValidation validators,
                        DTOs/mapping, IRepository / IUnitOfWork / IDocumentStore interfaces.
 SCPM.Infrastructure   EF Core DbContext + configurations, repository implementations,
-                       Microsoft Graph (SharePoint) client, Azure Blob client,
+                       Azure Blob client (active-tier document store + archive tier),
                        QuestPDF / OpenXML / ClosedXML report generators, Hangfire jobs,
                        Entra ID token validation setup.
 SCPM.Api              Controllers (thin — MediatR.Send only), auth policies, middleware
@@ -96,7 +94,7 @@ See [`docs/erd.md`](erd.md) for the entity-relationship model. Key principles:
 
 - One SQL schema per bounded context: `Security`, `Projects`, `Governance`, `Cost`, `Programme`, `Risk`, `Stakeholder`, `Documents`, `NEC4`, `SBCC`, `Reporting`, `Handover`, `Audit`.
 - **EF Core migrations are the single source of truth for every table, column, constraint, index, and temporal table** — generated from `SCPM.Domain` entities and `SCPM.Infrastructure/Persistence/Configurations`. There is no separate hand-maintained DDL; see `database/schema/README.md`. Views and stored procedures are the one exception, kept as hand-written SQL applied after migrations because EF Core has no declarative way to express them.
-- All primary keys are `UNIQUEIDENTIFIER` (GUID), generated application-side (sequential GUIDs via `NEWSEQUENTIALID()` default) to avoid clustered-index fragmentation while keeping keys portable across environments (dev seed data, SharePoint correlation, etc.).
+- All primary keys are `UNIQUEIDENTIFIER` (GUID), generated application-side (sequential GUIDs via `NEWSEQUENTIALID()` default) to avoid clustered-index fragmentation while keeping keys portable across environments (dev seed data, Blob path correlation, etc.).
 - Governance-critical tables (`Projects.Project`, `Cost.CostPlan`, `Cost.Forecast`, `Programme.Programme`, `Programme.Milestone`, `Risk.Risk`, `Risk.Issue`, `Stakeholder.Stakeholder`, `Documents.Document`, `NEC4.*`, `SBCC.*`, `Governance.Approval`, `Governance.Gateway`) are **system-versioned temporal tables**, enabling `FOR SYSTEM_TIME ALL / AS OF / BETWEEN` queries for point-in-time reconstruction and the Snapshot Comparison Engine.
 - Soft delete (`IsDeleted`, `DeletedDate`, `DeletedBy`) on all governance-critical entities; a global EF Core query filter excludes soft-deleted rows by default, with an explicit `IgnoreQueryFilters()` escape hatch for admin/audit views.
 - Reporting is served from **views** over the temporal tables (never directly from base tables in report queries) so report logic is centralised and testable via SQL, and stays decoupled from OLTP shape changes.
@@ -116,7 +114,7 @@ Hangfire, hosted in-process on the App Service (dashboard secured behind Adminis
 - Scheduled snapshots (daily/weekly/monthly)
 - Event snapshots (gateway approval, committee submission, contract award) — triggered from the relevant command handler via `IBackgroundJobClient.Enqueue`, not polled
 - Scheduled report generation and export-pack assembly
-- SharePoint metadata sync
+- Archive-tier moves once a document version is superseded/rejected and archived
 
 ## 9. Reporting & Export
 
@@ -126,4 +124,4 @@ A single `IReportExporter<TModel>` abstraction per report type produces PDF (Que
 
 - **Temporal tables over full event sourcing**: the domain needs point-in-time and audit reconstruction, not replayable business logic — temporal tables deliver that with native SQL Server tooling and no bespoke projection infrastructure.
 - **CQRS/MediatR without a message bus**: the platform is a single bounded deployment unit (one API, one database) at this stage; MediatR gives the CQRS separation and pipeline behaviours (validation, logging, audit) without the operational cost of a distributed message bus that isn't yet justified by scale.
-- **SharePoint as primary document store, Blob as archive**: keeps documents inside the council's existing M365 governance/compliance boundary (retention, DLP, permissions) while using Blob for cheaper long-term archive of superseded/archived versions.
+- **Azure Blob Storage for both the active and archive document tiers**: originally the active tier was SharePoint Online, to keep documents inside the council's existing M365 governance/compliance boundary — but Graph's app-only access needs a tenant admin to grant application-permission consent, which was not obtainable, so both tiers now live in Blob Storage (two containers, one storage account), with Blob's access tiers (Hot for active, Cool/Archive for archived) giving the same cost/performance split SharePoint+Blob previously did. If admin consent later becomes available, `IDocumentStore` is the one seam to swap back.

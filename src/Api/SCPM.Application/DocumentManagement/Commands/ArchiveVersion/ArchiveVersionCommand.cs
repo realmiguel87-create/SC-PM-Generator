@@ -7,7 +7,7 @@ namespace SCPM.Application.DocumentManagement.Commands.ArchiveVersion;
 
 /// <summary>Moves a version's files to the Blob archive tier and marks it Archived. Only
 /// Superseded or Rejected versions are eligible — the current Approved/Draft version of a
-/// document stays in SharePoint where people are actually working with it.</summary>
+/// document stays in the active-tier document store where people are actually working with it.</summary>
 public record ArchiveVersionCommand(Guid DocumentVersionId) : IRequest<Unit>;
 
 public class ArchiveVersionCommandHandler : IRequestHandler<ArchiveVersionCommand, Unit>
@@ -38,10 +38,10 @@ public class ArchiveVersionCommandHandler : IRequestHandler<ArchiveVersionComman
         var actorId = _currentUser.UserId ?? Guid.Empty;
         var now = DateTime.UtcNow;
 
-        foreach (var file in version.Files.Where(f => f.SharePointUrl is not null && f.BlobArchiveUrl is null))
+        foreach (var file in version.Files.Where(f => f.StorageUrl is not null && f.BlobArchiveUrl is null))
         {
             var blobPath = $"{version.Document.ProjectId}/{version.DocumentId}/{version.VersionLabel}/{file.FileName}";
-            file.BlobArchiveUrl = await _blobArchiveStore.ArchiveAsync(file.SharePointUrl!, blobPath, cancellationToken);
+            file.BlobArchiveUrl = await _blobArchiveStore.ArchiveAsync(file.StorageUrl!, blobPath, cancellationToken);
         }
 
         version.Status = DocumentVersionStatus.Archived;
