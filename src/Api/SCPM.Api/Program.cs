@@ -74,9 +74,31 @@ app.UseHangfireDashboard("/jobs", new DashboardOptions
 
 // Snapshot Engine v1 scheduled jobs (docs/roadmap.md Phase 2). Idempotent — AddOrUpdate
 // replaces the existing recurring job definition on every app start rather than duplicating it.
-RecurringJob.AddOrUpdate<SnapshotJobs>("snapshot-daily", j => j.RunDailySnapshotAsync(CancellationToken.None), Cron.Daily);
-RecurringJob.AddOrUpdate<SnapshotJobs>("snapshot-weekly", j => j.RunWeeklySnapshotAsync(CancellationToken.None), Cron.Weekly);
-RecurringJob.AddOrUpdate<SnapshotJobs>("snapshot-monthly", j => j.RunMonthlySnapshotAsync(CancellationToken.None), Cron.Monthly);
+//
+// Wrapped because AddOrUpdate writes to Hangfire's SQL storage immediately, so an unreachable
+// database here used to throw straight out of Program.cs and prevent the API starting at all.
+// That is the wrong failure mode: a transient database outage — routine on a serverless Azure
+// SQL tier that auto-pauses, and equally possible behind a firewall/network blip — should not
+// stop the API serving requests that don't touch the database (health checks, and every
+// authentication path, since Entra ID token validation needs no database at all).
+//
+// Trade-off, stated plainly: if this fails, the recurring jobs are NOT registered and scheduled
+// snapshots will not run until the app is restarted against a reachable database. That is worse
+// than registering them but better than a dead API, and the error is logged loudly rather than
+// swallowed. A background retry would remove the need for a restart — see docs/roadmap.md.
+try
+{
+    RecurringJob.AddOrUpdate<SnapshotJobs>("snapshot-daily", j => j.RunDailySnapshotAsync(CancellationToken.None), Cron.Daily);
+    RecurringJob.AddOrUpdate<SnapshotJobs>("snapshot-weekly", j => j.RunWeeklySnapshotAsync(CancellationToken.None), Cron.Weekly);
+    RecurringJob.AddOrUpdate<SnapshotJobs>("snapshot-monthly", j => j.RunMonthlySnapshotAsync(CancellationToken.None), Cron.Monthly);
+}
+catch (Exception ex)
+{
+    app.Services.GetRequiredService<ILogger<Program>>().LogError(ex,
+        "Could not register Hangfire recurring snapshot jobs — the job storage database was unreachable at startup. "
+        + "The API will continue to start, but scheduled snapshots will NOT run until it is restarted "
+        + "with a reachable database.");
+}
 
 app.MapControllers();
 
