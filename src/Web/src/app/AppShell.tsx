@@ -44,7 +44,7 @@ function AuthControl() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              instance.logoutPopup().catch((error: unknown) => {
+              instance.logoutRedirect().catch((error: unknown) => {
                 console.error("[SCPM auth] Sign-out failed:", error);
               });
             }}
@@ -60,12 +60,16 @@ function AuthControl() {
           size="sm"
           className="w-full"
           onClick={() => {
-            // Errors are surfaced, not swallowed: an unhandled rejection here (consent not
-            // granted, popup blocked, account not in the tenant, wrong scope name) otherwise
-            // leaves the UI sitting on "Sign in" with nothing explaining why — which is exactly
-            // how a real first-time setup of this app failed, undiagnosably.
+            // loginRedirect, not loginPopup: this navigates the main window to Entra ID and back,
+            // so there is no second window and no cross-window handoff of the auth code. The
+            // popup flow authenticated correctly but could never complete that handoff. The
+            // response is picked up by handleRedirectPromise() in main.tsx on the way back in.
+            //
+            // Errors are surfaced, not swallowed. An unhandled rejection here otherwise leaves
+            // the UI sitting on "Sign in" with nothing explaining why — which is exactly how a
+            // real first-time setup of this app failed, undiagnosably.
             setSignInError(null);
-            instance.loginPopup(loginRequest).catch((error: unknown) => {
+            instance.loginRedirect(loginRequest).catch((error: unknown) => {
               console.error("[SCPM auth] Sign-in failed:", error);
               setSignInError(describeAuthError(error));
             });

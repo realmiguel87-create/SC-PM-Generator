@@ -15,6 +15,20 @@ import "@/styles/globals.css";
 void (async () => {
   await msalInstance.initialize();
 
+  // Completes the redirect-flow sign-in. After Entra ID redirects back here, the auth code is
+  // sitting in this page's URL; handleRedirectPromise() exchanges it for tokens and clears the
+  // URL. This must run before render, and its failure must be visible — a rejected promise here
+  // would otherwise leave the app rendering as signed-out with no indication that a sign-in was
+  // attempted and failed.
+  try {
+    const redirectResult = await msalInstance.handleRedirectPromise();
+    if (redirectResult?.account) {
+      msalInstance.setActiveAccount(redirectResult.account);
+    }
+  } catch (error) {
+    console.error("[SCPM auth] Failed to complete redirect sign-in:", error);
+  }
+
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <MsalProvider instance={msalInstance}>
