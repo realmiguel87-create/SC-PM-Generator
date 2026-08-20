@@ -16,6 +16,13 @@ async function getAccessToken(): Promise<string | null> {
     const result = await msalInstance.acquireTokenSilent({ ...loginRequest, account });
     return result.accessToken;
   } catch (error) {
+    // Logged, not silently swallowed. Returning null without a trace makes a failed token
+    // acquisition indistinguishable from "not signed in" — both produce a bare 401 from the
+    // API with nothing in the console. That cost real debugging time during first setup.
+    console.warn(
+      "[SCPM auth] Silent token acquisition failed; request will be sent unauthenticated:",
+      error,
+    );
     // Silent acquisition needs an interactive prompt (expired session, revoked consent, etc.).
     // Deliberately not popping a popup from inside an arbitrary background fetch — that's a
     // jarring UX from, say, a TanStack Query background refetch. AppShell's sign-in control is

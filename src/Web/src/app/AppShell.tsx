@@ -1,9 +1,23 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useMsal, AuthenticatedTemplate, UnauthenticatedTemplate } from "@azure/msal-react";
 import { cn } from "@/lib/utils";
 import { loginRequest } from "@/lib/msal-config";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, FolderKanban, ShieldCheck, FileBarChart2, LogIn, LogOut } from "lucide-react";
+
+/// Pulls a human-readable message out of whatever MSAL throws. MSAL errors carry the useful
+/// detail (the AADSTS code and its explanation) on errorMessage rather than the standard Error
+/// message property, so a plain String(error) loses exactly the part worth reading.
+function describeAuthError(error: unknown): string {
+  if (error && typeof error === "object") {
+    const msalError = error as { errorCode?: string; errorMessage?: string; message?: string };
+    const detail = msalError.errorMessage ?? msalError.message;
+    if (msalError.errorCode && detail) return `${msalError.errorCode}: ${detail}`;
+    if (detail) return detail;
+  }
+  return String(error);
+}
 
 const navItems = [
   { to: "/", label: "Executive Dashboard", icon: LayoutDashboard, end: true },
@@ -14,6 +28,10 @@ const navItems = [
 
 function AuthControl() {
   const { instance, accounts } = useMsal();
+  // Shown in the UI, not just logged. A sign-in failure is something the person trying to sign
+  // in needs to see — expecting them to open DevTools to find out why the button did nothing is
+  // not a reasonable ask, and it is precisely what made this hard to diagnose in practice.
+  const [signInError, setSignInError] = useState<string | null>(null);
 
   return (
     <div className="border-t border-border p-3">
@@ -25,7 +43,11 @@ function AuthControl() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => instance.logoutPopup()}
+            onClick={() => {
+              instance.logoutRedirect().catch((error: unknown) => {
+                console.error("[SCPM auth] Sign-out failed:", error);
+              });
+            }}
             aria-label="Sign out"
           >
             <LogOut size={14} />
@@ -37,11 +59,30 @@ function AuthControl() {
           variant="outline"
           size="sm"
           className="w-full"
-          onClick={() => instance.loginPopup(loginRequest)}
+          onClick={() => {
+            // loginRedirect, not loginPopup: this navigates the main window to Entra ID and back,
+            // so there is no second window and no cross-window handoff of the auth code. The
+            // popup flow authenticated correctly but could never complete that handoff. The
+            // response is picked up by handleRedirectPromise() in main.tsx on the way back in.
+            //
+            // Errors are surfaced, not swallowed. An unhandled rejection here otherwise leaves
+            // the UI sitting on "Sign in" with nothing explaining why — which is exactly how a
+            // real first-time setup of this app failed, undiagnosably.
+            setSignInError(null);
+            instance.loginRedirect(loginRequest).catch((error: unknown) => {
+              console.error("[SCPM auth] Sign-in failed:", error);
+              setSignInError(describeAuthError(error));
+            });
+          }}
         >
           <LogIn size={14} />
           Sign in
         </Button>
+        {signInError && (
+          <p className="mt-2 break-words text-[11px] leading-snug text-red-600" role="alert">
+            {signInError}
+          </p>
+        )}
       </UnauthenticatedTemplate>
     </div>
   );
