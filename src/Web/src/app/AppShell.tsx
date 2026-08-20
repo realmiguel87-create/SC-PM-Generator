@@ -25,7 +25,11 @@ function AuthControl() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => instance.logoutPopup()}
+            onClick={() => {
+              instance.logoutPopup().catch((error: unknown) => {
+                console.error("[SCPM auth] Sign-out failed:", error);
+              });
+            }}
             aria-label="Sign out"
           >
             <LogOut size={14} />
@@ -37,7 +41,16 @@ function AuthControl() {
           variant="outline"
           size="sm"
           className="w-full"
-          onClick={() => instance.loginPopup(loginRequest)}
+          onClick={() => {
+            // Errors are surfaced, not swallowed: an unhandled rejection here (consent not
+            // granted, popup blocked, account not in the tenant, wrong scope name) otherwise
+            // leaves the UI sitting on "Sign in" with nothing explaining why — which is exactly
+            // how a real first-time setup of this app failed, undiagnosably, until this logging
+            // was added.
+            instance.loginPopup(loginRequest).catch((error: unknown) => {
+              console.error("[SCPM auth] Sign-in failed:", error);
+            });
+          }}
         >
           <LogIn size={14} />
           Sign in
