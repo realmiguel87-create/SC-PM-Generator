@@ -19,7 +19,18 @@ export const msalConfig: Configuration = {
   auth: {
     clientId,
     authority: `https://login.microsoftonline.com/${tenantId}`,
-    redirectUri: window.location.origin,
+    // /blank.html, not the app root. The sign-in popup redirects here after authenticating, and
+    // MSAL only needs to read the token fragment out of the URL and post it to the parent
+    // window. Pointing this at "/" makes the popup load the entire React app first — every
+    // module, every dependency — and MSAL gives up after 60 seconds with
+    // "BrowserAuthError: timed_out". That is how sign-in failed during first real setup: the
+    // authentication itself succeeded every time; only the handoff timed out, which looks
+    // identical to a consent or tenant misconfiguration from the outside.
+    //
+    // Both this URI and the app origin must be registered as SPA redirect URIs on the Entra ID
+    // app registration.
+    redirectUri: `${window.location.origin}/blank.html`,
+    postLogoutRedirectUri: window.location.origin,
   },
   cache: {
     // sessionStorage, not localStorage — tokens shouldn't outlive the browser tab for a
