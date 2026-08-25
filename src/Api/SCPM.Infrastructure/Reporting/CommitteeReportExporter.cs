@@ -10,9 +10,13 @@ using SCPM.Application.Reporting.Dtos;
 namespace SCPM.Infrastructure.Reporting;
 
 /// <summary>
-/// Generates PDF/XLSX/CSV/JSON from the same CommitteeReportDto, so every format shows the same
-/// content and the Stirling branding (purple header, muted greys) is defined once. DOCX/PPTX
-/// are deferred — see ICommitteeReportExporter and docs/roadmap.md Phase 6.
+/// Generates every export format from the same CommitteeReportDto, so they all show the same
+/// content and the Stirling branding (purple header, muted greys) is defined once. The section
+/// list below is the single definition of what a report contains and in what order — adding a
+/// section here adds it to all six formats at once, which is the whole point of the shared array.
+///
+/// DOCX and PPTX live in OpenXmlReportBuilder: the Open XML SDK needs far more scaffolding than
+/// QuestPDF or ClosedXML, and inlining it here would bury the report structure under it.
 /// </summary>
 public class CommitteeReportExporter : ICommitteeReportExporter
 {
@@ -34,6 +38,8 @@ public class CommitteeReportExporter : ICommitteeReportExporter
             ReportExportFormat.Xlsx => ExportXlsx(report),
             ReportExportFormat.Csv => ExportCsv(report),
             ReportExportFormat.Json => ExportJson(report),
+            ReportExportFormat.Docx => OpenXmlReportBuilder.BuildDocx(report, Sections, StirlingPurple, TextSecondary),
+            ReportExportFormat.Pptx => OpenXmlReportBuilder.BuildPptx(report, Sections, StirlingPurple, TextSecondary),
             _ => throw new NotSupportedException($"Export format {format} is not supported.")
         });
     }
