@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
+import { ApiError } from "@/lib/api-client";
 import { useCreateProject } from "./api";
 import type { CreateProjectRequest } from "./types";
 
@@ -172,7 +173,8 @@ export function NewProjectForm({ onClose }: { onClose: () => void }) {
 
           {createProject.isError && (
             <p role="alert" className="text-xs text-critical">
-              {/\b403\b/.test(String(createProject.error))
+              {/* Status, not a regex over the message — see ApiError in lib/api-client.ts. */}
+              {createProject.error instanceof ApiError && createProject.error.status === 403
                 ? "Your account does not have permission to create projects. This requires a role in the CanWrite policy."
                 : `Could not create the project: ${
                     createProject.error instanceof Error

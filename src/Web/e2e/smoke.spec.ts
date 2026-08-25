@@ -8,9 +8,9 @@ const NAV_ITEMS = [
 ];
 
 /** Console noise from every /api/* call failing is expected here and is not itself a bug: no
- * backend is running for this smoke test (frontend-only, see playwright.config.ts), and even a
- * live one would 401 every request since MSAL auth isn't wired into the frontend yet (see
- * src/lib/api-client.ts). Vite's dev/preview proxy reports an unreachable backend as a
+ * backend is running for this smoke test (see playwright.config.ts), and nobody is signed in, so
+ * api-client sends every request unauthenticated. Successful responses are covered separately, in
+ * api-backed.spec.ts, which stubs them. Vite's dev/preview proxy reports an unreachable backend as a
  * "Failed to load resource" browser error with a 404/500/502/503 status, not a fetch()
  * rejection, so that's what's actually filtered here — a real broken build asset would show the
  * same message shape but this app has no non-API resources that 404 in a working build, so this
