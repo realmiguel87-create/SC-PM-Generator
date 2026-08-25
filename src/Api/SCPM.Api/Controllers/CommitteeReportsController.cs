@@ -9,6 +9,7 @@ using SCPM.Application.Reporting.Dtos;
 using SCPM.Application.Reporting.Queries.CompareSnapshotItems;
 using SCPM.Application.Reporting.Queries.CompareSnapshots;
 using SCPM.Application.Reporting.Queries.GetCommitteeReport;
+using SCPM.Application.Reporting.Queries.GetSnapshotIntervalActivity;
 using SCPM.Application.Reporting.Queries.GetCommitteeReports;
 using SCPM.Domain.Enums;
 
@@ -108,4 +109,15 @@ public class CommitteeReportsController : ControllerBase
     public async Task<ActionResult<SnapshotItemComparisonDto>> CompareSnapshotItems(
         [FromQuery] Guid fromSnapshotId, [FromQuery] Guid toSnapshotId, CancellationToken ct)
         => Ok(await _mediator.Send(new CompareSnapshotItemsQuery(fromSnapshotId, toSnapshotId), ct));
+
+    /// <summary>
+    /// What happened between two snapshots that comparing their endpoints cannot reveal — items
+    /// raised and removed inside the window, or changed and changed back. Separate from the
+    /// comparison endpoints because it reads every row version in the period rather than the
+    /// state at two instants, and is the most expensive of the three.
+    /// </summary>
+    [HttpGet("api/snapshots/compare/interval-activity")]
+    public async Task<ActionResult<SnapshotIntervalActivityDto>> GetSnapshotIntervalActivity(
+        [FromQuery] Guid fromSnapshotId, [FromQuery] Guid toSnapshotId, CancellationToken ct)
+        => Ok(await _mediator.Send(new GetSnapshotIntervalActivityQuery(fromSnapshotId, toSnapshotId), ct));
 }

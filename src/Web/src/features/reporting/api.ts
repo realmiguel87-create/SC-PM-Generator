@@ -5,6 +5,7 @@ import type {
   CommitteeReportListItem,
   CommitteeReportType,
   SnapshotComparison,
+  SnapshotIntervalActivity,
   SnapshotItemComparison,
 } from "./types";
 
@@ -81,6 +82,25 @@ export function useCompareSnapshotItems(
     queryFn: () =>
       apiClient.get<SnapshotItemComparison>(
         `/snapshots/compare/items?fromSnapshotId=${fromSnapshotId}&toSnapshotId=${toSnapshotId}`,
+      ),
+    enabled: !!fromSnapshotId && !!toSnapshotId && fromSnapshotId !== toSnapshotId,
+  });
+}
+
+/**
+ * Activity an endpoint comparison cannot see. Reads every row version in the period rather than
+ * the state at two instants, so it is the most expensive of the three comparison queries — hence
+ * a separate call a caller opts into, not a field on the others.
+ */
+export function useSnapshotIntervalActivity(
+  fromSnapshotId: string | undefined,
+  toSnapshotId: string | undefined,
+) {
+  return useQuery({
+    queryKey: ["snapshots", "compare", "interval", fromSnapshotId, toSnapshotId],
+    queryFn: () =>
+      apiClient.get<SnapshotIntervalActivity>(
+        `/snapshots/compare/interval-activity?fromSnapshotId=${fromSnapshotId}&toSnapshotId=${toSnapshotId}`,
       ),
     enabled: !!fromSnapshotId && !!toSnapshotId && fromSnapshotId !== toSnapshotId,
   });

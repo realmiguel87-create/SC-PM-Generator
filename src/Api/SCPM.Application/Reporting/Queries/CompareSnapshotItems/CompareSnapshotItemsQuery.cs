@@ -99,21 +99,20 @@ public class CompareSnapshotItemsQueryHandler
     /// The shape every register diff has in common: match by id, classify as added/removed/
     /// modified, and drop anything present at both points that did not move.
     ///
-    /// What differs per register is only <paramref name="hasMoved"/> — which fields count as a
-    /// reportable change — and that is the part that needs judgement rather than mechanism. Six
-    /// hand-written copies of this loop would have buried those six decisions in boilerplate,
-    /// which is exactly how one of them ends up subtly different from the others by accident.
+    /// What differs per register is only the rule's HasMoved predicate — which fields count as a
+    /// reportable change — and that is the part that needs judgement rather than mechanism. Those
+    /// judgements live in RegisterChangeRules so this query and the interval-activity query
+    /// cannot come to disagree about whether a given item moved.
     /// </summary>
     private static List<TChange> Diff<TEntity, TChange>(
         IReadOnlyList<TEntity> from,
         IReadOnlyList<TEntity> to,
-        Func<TEntity, Guid> identify,
-        Func<TEntity, TEntity, bool> hasMoved,
+        RegisterRule<TEntity> rule,
         Func<Guid, TEntity?, TEntity?, TChange> build)
         where TEntity : class
     {
-        var fromById = from.ToDictionary(identify);
-        var toById = to.ToDictionary(identify);
+        var fromById = from.ToDictionary(rule.Identify);
+        var toById = to.ToDictionary(rule.Identify);
         var changes = new List<TChange>();
 
         foreach (var id in fromById.Keys.Union(toById.Keys))
@@ -121,13 +120,17 @@ public class CompareSnapshotItemsQueryHandler
             fromById.TryGetValue(id, out var before);
             toById.TryGetValue(id, out var after);
 
-            if (before is not null && after is not null && !hasMoved(before, after)) continue;
+            if (before is not null && after is not null && !rule.HasMoved(before, after)) continue;
 
             changes.Add(build(id, before, after));
         }
 
         return changes;
     }
+
+    // Each register's DTO below carries whichever fields its RegisterChangeRules rule treats as a
+    // movement, plus enough context to name the item. What counts as a movement is defined there,
+    // once, and not restated here.
 
     private static ItemChangeType ChangeTypeFor(object? before, object? after) => before switch
     {
@@ -136,15 +139,8 @@ public class CompareSnapshotItemsQueryHandler
         _ => ItemChangeType.Modified,
     };
 
-    // --- Risk: score movement and status. A title-only edit is housekeeping, not a movement. ---
-
     private static List<RiskChangeDto> DiffRisks(IReadOnlyList<Risk> from, IReadOnlyList<Risk> to) =>
-        Diff(from, to,
-            r => r.Id,
-            (before, after) =>
-                before.Status != after.Status ||
-                before.Probability != after.Probability ||
-                before.Impact != after.Impact,
+        Diff(from, to, RegisterChangeRules.Risks,
             (id, before, after) => new RiskChangeDto
             {
                 RiskId = id,
@@ -166,18 +162,9 @@ public class CompareSnapshotItemsQueryHandler
         .ThenBy(c => c.Title)
         .ToList();
 
-    // --- Milestone: dates and status. Baseline changes are re-baselining, a governance event in
-    // its own right — folding it in would report a slip the dates no longer show, or hide one
-    // that they do. ---
-
     private static List<MilestoneChangeDto> DiffMilestones(
         IReadOnlyList<Milestone> from, IReadOnlyList<Milestone> to) =>
-        Diff(from, to,
-            m => m.Id,
-            (before, after) =>
-                before.Status != after.Status ||
-                before.ForecastDate != after.ForecastDate ||
-                before.ActualDate != after.ActualDate,
+        Diff(from, to, RegisterChangeRules.Milestones,
             (id, before, after) => new MilestoneChangeDto
             {
                 MilestoneId = id,
@@ -197,15 +184,9 @@ public class CompareSnapshotItemsQueryHandler
         .ThenBy(c => c.Name)
         .ToList();
 
-    // --- Early warning: open or closed, and nothing else. Mitigation-action text changes as the
-    // team works the problem, and reporting every wording change would drown the two transitions
-    // that matter. ---
-
     private static List<EarlyWarningChangeDto> DiffEarlyWarnings(
         IReadOnlyList<EarlyWarning> from, IReadOnlyList<EarlyWarning> to) =>
-        Diff(from, to,
-            e => e.Id,
-            (before, after) => before.Status != after.Status,
+        Diff(from, to, RegisterChangeRules.EarlyWarnings,
             (id, before, after) => new EarlyWarningChangeDto
             {
                 EarlyWarningId = id,
@@ -218,17 +199,9 @@ public class CompareSnapshotItemsQueryHandler
         .ThenBy(c => c.Title)
         .ToList();
 
-    // --- Compensation event: both dimensions a CE moves in — where it is in the NEC4 process,
-    // and what it is expected to cost. Either alone tells half the story: a CE can be accepted
-    // without its value changing, or re-estimated without moving status. ---
-
     private static List<CompensationEventChangeDto> DiffCompensationEvents(
         IReadOnlyList<CompensationEvent> from, IReadOnlyList<CompensationEvent> to) =>
-        Diff(from, to,
-            c => c.Id,
-            (before, after) =>
-                before.Status != after.Status ||
-                before.EstimatedValue != after.EstimatedValue,
+        Diff(from, to, RegisterChangeRules.CompensationEvents,
             (id, before, after) => new CompensationEventChangeDto
             {
                 CompensationEventId = id,
@@ -245,15 +218,9 @@ public class CompareSnapshotItemsQueryHandler
         .ThenBy(c => c.Reference)
         .ToList();
 
-    // --- Variation: status and value impact, for the same reason as compensation events. ---
-
     private static List<VariationChangeDto> DiffVariations(
         IReadOnlyList<Variation> from, IReadOnlyList<Variation> to) =>
-        Diff(from, to,
-            v => v.Id,
-            (before, after) =>
-                before.Status != after.Status ||
-                before.ValueImpact != after.ValueImpact,
+        Diff(from, to, RegisterChangeRules.Variations,
             (id, before, after) => new VariationChangeDto
             {
                 VariationId = id,
@@ -270,18 +237,9 @@ public class CompareSnapshotItemsQueryHandler
         .ThenBy(c => c.Reference)
         .ToList();
 
-    // --- Extension of time: claimed and awarded days tracked separately, deliberately. A claim
-    // rising is the contractor's position; an award rising is the programme actually moving.
-    // Reporting them as one number would conflate an argument with a fact. ---
-
     private static List<ExtensionOfTimeChangeDto> DiffExtensionsOfTime(
         IReadOnlyList<ExtensionOfTime> from, IReadOnlyList<ExtensionOfTime> to) =>
-        Diff(from, to,
-            x => x.Id,
-            (before, after) =>
-                before.Status != after.Status ||
-                before.DaysClaimed != after.DaysClaimed ||
-                before.DaysAwarded != after.DaysAwarded,
+        Diff(from, to, RegisterChangeRules.ExtensionsOfTime,
             (id, before, after) => new ExtensionOfTimeChangeDto
             {
                 ExtensionOfTimeId = id,
