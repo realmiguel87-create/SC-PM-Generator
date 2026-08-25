@@ -10,7 +10,7 @@ import {
   useInterimValuations, useLossAndExpenseClaims, useUpdateExtensionOfTimeStatus,
   useUpdateLossAndExpenseStatus, useUpdateVariationStatus, useVariations,
 } from "./api";
-import type { ExtensionOfTime, LossAndExpenseClaim } from "./types";
+import type { ExtensionOfTime, LossAndExpenseClaim, Variation } from "./types";
 
 const REGISTERS = ["Variations", "Extensions of Time", "Loss & Expense", "Architect's Instructions", "Interim Valuations"] as const;
 type Register = (typeof REGISTERS)[number];
@@ -63,7 +63,13 @@ function VariationsSection({ projectId }: { projectId: string }) {
           <span>{v.reference} — {v.description} ({formatCurrency(v.valueImpact)})</span>
           <div className="flex items-center gap-2">
             <Badge variant={statusToBadgeVariant(v.status)}>{v.status}</Badge>
-            {v.status === "Instructed" && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ variationId: v.id, status: "Priced" })}>Mark Priced</Button>}
+            <StatusActions
+              status={v.status}
+              transitions={VARIATION_TRANSITIONS}
+              labels={{ Priced: "Mark Priced", Agreed: "Agree" }}
+              pending={updateStatus.isPending}
+              onSelect={(status) => updateStatus.mutate({ variationId: v.id, status })}
+            />
           </div>
         </div>
       ))}
@@ -108,6 +114,13 @@ function ExtensionsOfTimeSection({ projectId }: { projectId: string }) {
     </div>
   );
 }
+
+// Mirrors StatusTransitions.Variation in the Domain. SBCC variations have no rejected state —
+// an instruction has been issued, and the only question is what it is worth.
+const VARIATION_TRANSITIONS: TransitionMap<Variation["status"]> = {
+  Instructed: ["Priced"],
+  Priced: ["Agreed"],
+};
 
 // Claimed and under-review claims can still be determined; agreed and rejected are terminal.
 // Reopening a determination is not a UI action — it is a contractual event that should leave a

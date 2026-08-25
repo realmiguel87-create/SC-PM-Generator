@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SCPM.Application.Common.Interfaces;
+using SCPM.Domain.Common;
 using SCPM.Domain.Enums;
 
 namespace SCPM.Application.SBCC.Commands.UpdateVariationStatus;
@@ -22,6 +23,9 @@ public class UpdateVariationStatusCommandHandler : IRequestHandler<UpdateVariati
     {
         var variation = await _db.Variations.FirstOrDefaultAsync(v => v.Id == request.VariationId, cancellationToken)
             ?? throw new KeyNotFoundException($"Variation {request.VariationId} not found.");
+
+        StatusTransitions.EnsureAllowed(
+            StatusTransitions.Variation, variation.Status, request.Status, $"variation {variation.Reference}");
 
         variation.Status = request.Status;
         variation.ModifiedBy = _currentUser.UserId ?? Guid.Empty;

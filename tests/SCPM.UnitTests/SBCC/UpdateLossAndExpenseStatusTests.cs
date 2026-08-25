@@ -78,15 +78,40 @@ public class UpdateLossAndExpenseStatusTests
         using var db = NewContext();
         var claim = await SeedAsync(db, LossAndExpenseStatus.Agreed, awarded: 40_000m);
 
+        // Re-applying the same status, which is how a correction that does not touch the amount
+        // reaches the handler. This test originally moved the claim Agreed -> UnderReview; the
+        // transition rules added afterwards forbid that, and rightly so — reversing a
+        // determination by editing the row is the behaviour those rules exist to stop. The
+        // property being tested is unchanged.
         await Handler(db).Handle(
-            new UpdateLossAndExpenseStatusCommand(claim.Id, LossAndExpenseStatus.UnderReview, null),
+            new UpdateLossAndExpenseStatusCommand(claim.Id, LossAndExpenseStatus.Agreed, null),
             CancellationToken.None);
 
         var updated = await db.LossAndExpenseClaims.SingleAsync();
-        updated.Status.Should().Be(LossAndExpenseStatus.UnderReview);
+        updated.Status.Should().Be(LossAndExpenseStatus.Agreed);
         // Null means "no figure supplied", not "no figure agreed". Treating it as a clear would
         // lose the record of what was agreed the first time.
         updated.AwardedAmount.Should().Be(40_000m);
+    }
+
+    [Fact]
+    public async Task Refuses_to_reverse_a_determination()
+    {
+        using var db = NewContext();
+        var claim = await SeedAsync(db, LossAndExpenseStatus.Agreed, awarded: 40_000m);
+
+        var act = () => Handler(db).Handle(
+            new UpdateLossAndExpenseStatusCommand(claim.Id, LossAndExpenseStatus.Claimed, null),
+            CancellationToken.None);
+
+        // The API used to accept this, and the only thing preventing it was the absence of a
+        // button. A claim that can quietly become unagreed is not evidence of anything.
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Agreed is final*");
+
+        var unchanged = await db.LossAndExpenseClaims.SingleAsync();
+        unchanged.Status.Should().Be(LossAndExpenseStatus.Agreed);
+        unchanged.AwardedAmount.Should().Be(40_000m);
     }
 
     [Fact]

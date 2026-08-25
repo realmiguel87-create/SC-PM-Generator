@@ -11,7 +11,7 @@ import {
   useCreateRiskAllocationItem, useEarlyWarnings, usePaymentAssessments, useRiskAllocationItems,
   useUpdateChangeRegisterItemStatus, useUpdateCompensationEventStatus, useUpdatePaymentAssessmentStatus,
 } from "./api";
-import type { ChangeRegisterItem } from "./types";
+import type { ChangeRegisterItem, CompensationEvent, PaymentAssessment } from "./types";
 
 const REGISTERS = [
   "Early Warnings", "Compensation Events", "Contract Data", "Risk Allocation", "Accepted Programme", "Payment Assessments", "Change Register",
@@ -96,9 +96,13 @@ function CompensationEventsSection({ projectId }: { projectId: string }) {
           <span>{c.reference} — {c.title} ({formatCurrency(c.estimatedValue)})</span>
           <div className="flex items-center gap-2">
             <Badge variant={statusToBadgeVariant(c.status)}>{c.status}</Badge>
-            {c.status === "Notified" && (
-              <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ compensationEventId: c.id, status: "Quoted" })}>Mark Quoted</Button>
-            )}
+            <StatusActions
+              status={c.status}
+              transitions={COMPENSATION_EVENT_TRANSITIONS}
+              labels={{ Quoted: "Mark Quoted", Accepted: "Accept", Rejected: "Reject", Implemented: "Implement" }}
+              pending={updateStatus.isPending}
+              onSelect={(status) => updateStatus.mutate({ compensationEventId: c.id, status })}
+            />
           </div>
         </div>
       ))}
@@ -220,13 +224,34 @@ function PaymentAssessmentsSection({ projectId }: { projectId: string }) {
           <span>PA{p.assessmentNumber} — {formatCurrency(p.amountDue)}</span>
           <div className="flex items-center gap-2">
             <Badge variant={statusToBadgeVariant(p.status)}>{p.status}</Badge>
-            {p.status === "Assessed" && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ paymentAssessmentId: p.id, status: "Certified" })}>Certify</Button>}
+            <StatusActions
+              status={p.status}
+              transitions={PAYMENT_ASSESSMENT_TRANSITIONS}
+              labels={{ Certified: "Certify", Paid: "Mark Paid" }}
+              pending={updateStatus.isPending}
+              onSelect={(status) => updateStatus.mutate({ paymentAssessmentId: p.id, status })}
+            />
           </div>
         </div>
       ))}
     </div>
   );
 }
+
+// These maps mirror StatusTransitions in the Domain, which is the authority — the API rejects
+// anything outside them with a 409. Kept in step by hand, the same convention NewProjectForm
+// follows for CreateProjectCommandValidator: a rule tightened server-side and not reflected here
+// degrades a missing button into a confusing error.
+const COMPENSATION_EVENT_TRANSITIONS: TransitionMap<CompensationEvent["status"]> = {
+  Notified: ["Quoted", "Rejected"],
+  Quoted: ["Accepted", "Rejected"],
+  Accepted: ["Implemented"],
+};
+
+const PAYMENT_ASSESSMENT_TRANSITIONS: TransitionMap<PaymentAssessment["status"]> = {
+  Assessed: ["Certified"],
+  Certified: ["Paid"],
+};
 
 // Proposed changes are approved or rejected; an approved one is then implemented. Rejected and
 // Implemented are terminal — a rejected change that needs revisiting is raised again, so that the

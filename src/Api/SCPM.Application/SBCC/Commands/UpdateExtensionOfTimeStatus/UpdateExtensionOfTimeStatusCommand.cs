@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SCPM.Application.Common.Interfaces;
+using SCPM.Domain.Common;
 using SCPM.Domain.Enums;
 
 namespace SCPM.Application.SBCC.Commands.UpdateExtensionOfTimeStatus;
@@ -22,6 +23,9 @@ public class UpdateExtensionOfTimeStatusCommandHandler : IRequestHandler<UpdateE
     {
         var eot = await _db.ExtensionsOfTime.FirstOrDefaultAsync(e => e.Id == request.ExtensionOfTimeId, cancellationToken)
             ?? throw new KeyNotFoundException($"Extension of time {request.ExtensionOfTimeId} not found.");
+
+        StatusTransitions.EnsureAllowed(
+            StatusTransitions.ExtensionOfTime, eot.Status, request.Status, $"extension of time {eot.Reference}");
 
         eot.Status = request.Status;
         if (request.DaysAwarded.HasValue)
