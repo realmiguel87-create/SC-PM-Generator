@@ -25,4 +25,12 @@ public interface IRegisterHistory
     Task<IReadOnlyList<Risk>> RisksAsOfAsync(Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Milestone>> MilestonesAsOfAsync(Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<EarlyWarning>> EarlyWarningsAsOfAsync(Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<CompensationEvent>> CompensationEventsAsOfAsync(Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Variation>> VariationsAsOfAsync(Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ExtensionOfTime>> ExtensionsOfTimeAsOfAsync(Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken);
 }

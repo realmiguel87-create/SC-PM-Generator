@@ -39,4 +39,36 @@ public class SqlServerRegisterHistory : IRegisterHistory
             .AsNoTracking()
             .Where(m => m.ProjectId == projectId)
             .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<EarlyWarning>> EarlyWarningsAsOfAsync(
+        Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken) =>
+        await _db.EarlyWarnings
+            .TemporalAsOf(asOfUtc)
+            .AsNoTracking()
+            .Where(e => e.ProjectId == projectId)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<CompensationEvent>> CompensationEventsAsOfAsync(
+        Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken) =>
+        await _db.CompensationEvents
+            .TemporalAsOf(asOfUtc)
+            .AsNoTracking()
+            .Where(c => c.ProjectId == projectId)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Variation>> VariationsAsOfAsync(
+        Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken) =>
+        await _db.Variations
+            .TemporalAsOf(asOfUtc)
+            .AsNoTracking()
+            .Where(v => v.ProjectId == projectId)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<ExtensionOfTime>> ExtensionsOfTimeAsOfAsync(
+        Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken) =>
+        await _db.ExtensionsOfTime
+            .TemporalAsOf(asOfUtc)
+            .AsNoTracking()
+            .Where(x => x.ProjectId == projectId)
+            .ToListAsync(cancellationToken);
 }

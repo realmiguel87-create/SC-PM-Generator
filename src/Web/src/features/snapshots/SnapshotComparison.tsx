@@ -3,7 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ApiErrorNotice } from "@/components/ApiErrorNotice";
 import { useCompareSnapshotItems, useCompareSnapshots } from "@/features/reporting/api";
-import type { MilestoneChange, RiskChange } from "@/features/reporting/types";
+import type {
+  CompensationEventChange,
+  EarlyWarningChange,
+  ExtensionOfTimeChange,
+  MilestoneChange,
+  RiskChange,
+  VariationChange,
+} from "@/features/reporting/types";
 import { formatCurrency } from "@/lib/utils";
 import type { Snapshot } from "./api";
 
@@ -144,30 +151,57 @@ export function SnapshotComparison({ snapshots }: { snapshots: Snapshot[] }) {
 
         {items.data && !items.data.hasChanges && (
           <p className="text-sm text-text-secondary">
-            No individual risks or milestones changed between these two points.
+            Nothing on the risk, programme, NEC4 or SBCC registers changed between these two
+            points.
           </p>
         )}
 
         {items.data && items.data.riskChanges.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h4 className="text-xs font-medium uppercase text-text-secondary">Risk changes</h4>
-            <ul className="flex flex-col gap-1.5">
-              {items.data.riskChanges.map((change) => (
-                <RiskChangeRow key={change.riskId} change={change} />
-              ))}
-            </ul>
-          </section>
+          <ChangeSection title="Risk changes">
+            {items.data.riskChanges.map((change) => (
+              <RiskChangeRow key={change.riskId} change={change} />
+            ))}
+          </ChangeSection>
         )}
 
         {items.data && items.data.milestoneChanges.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h4 className="text-xs font-medium uppercase text-text-secondary">Milestone changes</h4>
-            <ul className="flex flex-col gap-1.5">
-              {items.data.milestoneChanges.map((change) => (
-                <MilestoneChangeRow key={change.milestoneId} change={change} />
-              ))}
-            </ul>
-          </section>
+          <ChangeSection title="Milestone changes">
+            {items.data.milestoneChanges.map((change) => (
+              <MilestoneChangeRow key={change.milestoneId} change={change} />
+            ))}
+          </ChangeSection>
+        )}
+
+        {items.data && items.data.earlyWarningChanges.length > 0 && (
+          <ChangeSection title="Early warning changes (NEC4)">
+            {items.data.earlyWarningChanges.map((change) => (
+              <EarlyWarningChangeRow key={change.earlyWarningId} change={change} />
+            ))}
+          </ChangeSection>
+        )}
+
+        {items.data && items.data.compensationEventChanges.length > 0 && (
+          <ChangeSection title="Compensation event changes (NEC4)">
+            {items.data.compensationEventChanges.map((change) => (
+              <CompensationEventChangeRow key={change.compensationEventId} change={change} />
+            ))}
+          </ChangeSection>
+        )}
+
+        {items.data && items.data.variationChanges.length > 0 && (
+          <ChangeSection title="Variation changes (SBCC)">
+            {items.data.variationChanges.map((change) => (
+              <VariationChangeRow key={change.variationId} change={change} />
+            ))}
+          </ChangeSection>
+        )}
+
+        {items.data && items.data.extensionOfTimeChanges.length > 0 && (
+          <ChangeSection title="Extension of time changes (SBCC)">
+            {items.data.extensionOfTimeChanges.map((change) => (
+              <ExtensionOfTimeChangeRow key={change.extensionOfTimeId} change={change} />
+            ))}
+          </ChangeSection>
         )}
       </CardContent>
     </Card>
@@ -244,6 +278,132 @@ function DeltaRow({
   );
 }
 
+/** Every register's changes render the same way — heading, then a list of one-line movements. */
+function ChangeSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h4 className="text-xs font-medium uppercase text-text-secondary">{title}</h4>
+      <ul className="flex flex-col gap-1.5">{children}</ul>
+    </section>
+  );
+}
+
+function ChangeRow({
+  changeType,
+  name,
+  children,
+  trailing,
+}: {
+  changeType: string;
+  name: string;
+  children: React.ReactNode;
+  trailing?: React.ReactNode;
+}) {
+  return (
+    <li className="flex flex-wrap items-center gap-2 border-b border-border pb-1.5 text-sm last:border-0">
+      {changeBadge(changeType)}
+      <span className="font-medium">{name}</span>
+      <span className="text-text-secondary">{children}</span>
+      {trailing}
+    </li>
+  );
+}
+
+/** Signed money, coloured on the assumption that a commercial figure rising is bad news. */
+function ValueDelta({ delta }: { delta: number | null }) {
+  if (delta === null || delta === 0) return null;
+  return (
+    <span className={delta > 0 ? "text-critical" : "text-stirling-green"}>
+      {delta > 0 ? "+" : "−"}
+      {formatCurrency(Math.abs(delta))}
+    </span>
+  );
+}
+
+function statusTransition(from: string | null, to: string | null) {
+  return from !== to ? `${from} → ${to}` : null;
+}
+
+function EarlyWarningChangeRow({ change }: { change: EarlyWarningChange }) {
+  return (
+    <ChangeRow changeType={change.changeType} name={change.title}>
+      {change.changeType === "Added" && `raised (${change.toStatus})`}
+      {change.changeType === "Removed" && "removed from the register"}
+      {change.changeType === "Modified" && statusTransition(change.fromStatus, change.toStatus)}
+    </ChangeRow>
+  );
+}
+
+function CompensationEventChangeRow({ change }: { change: CompensationEventChange }) {
+  const transition = statusTransition(change.fromStatus, change.toStatus);
+  return (
+    <ChangeRow
+      changeType={change.changeType}
+      name={`${change.reference} — ${change.title}`}
+      trailing={<ValueDelta delta={change.estimatedValueDelta} />}
+    >
+      {change.changeType === "Added" &&
+        `notified at ${formatCurrency(change.toEstimatedValue ?? 0)}`}
+      {change.changeType === "Removed" &&
+        `was ${formatCurrency(change.fromEstimatedValue ?? 0)}`}
+      {change.changeType === "Modified" && (
+        <>
+          {transition}
+          {transition && change.estimatedValueDelta !== 0 && ", "}
+          {change.estimatedValueDelta !== 0 &&
+            `${formatCurrency(change.fromEstimatedValue ?? 0)} → ${formatCurrency(change.toEstimatedValue ?? 0)}`}
+        </>
+      )}
+    </ChangeRow>
+  );
+}
+
+function VariationChangeRow({ change }: { change: VariationChange }) {
+  const transition = statusTransition(change.fromStatus, change.toStatus);
+  return (
+    <ChangeRow
+      changeType={change.changeType}
+      name={`${change.reference} — ${change.description}`}
+      trailing={<ValueDelta delta={change.valueImpactDelta} />}
+    >
+      {change.changeType === "Added" &&
+        `instructed at ${formatCurrency(change.toValueImpact ?? 0)}`}
+      {change.changeType === "Removed" && "removed from the register"}
+      {change.changeType === "Modified" && (
+        <>
+          {transition}
+          {transition && change.valueImpactDelta !== 0 && ", "}
+          {change.valueImpactDelta !== 0 &&
+            `${formatCurrency(change.fromValueImpact ?? 0)} → ${formatCurrency(change.toValueImpact ?? 0)}`}
+        </>
+      )}
+    </ChangeRow>
+  );
+}
+
+function ExtensionOfTimeChangeRow({ change }: { change: ExtensionOfTimeChange }) {
+  // Claimed and awarded are shown separately and labelled: a claim is the contractor's position,
+  // an award is the programme actually moving, and the two must not read as one figure.
+  const claimMoved = change.fromDaysClaimed !== change.toDaysClaimed;
+  const awardMoved = change.fromDaysAwarded !== change.toDaysAwarded;
+
+  return (
+    <ChangeRow changeType={change.changeType} name={`${change.reference} — ${change.reason}`}>
+      {change.changeType === "Added" && `claimed ${change.toDaysClaimed} days`}
+      {change.changeType === "Removed" && "withdrawn from the register"}
+      {change.changeType === "Modified" && (
+        <>
+          {claimMoved && `claim ${change.fromDaysClaimed} → ${change.toDaysClaimed} days`}
+          {claimMoved && awardMoved && ", "}
+          {awardMoved &&
+            `awarded ${change.fromDaysAwarded ?? "undetermined"} → ${change.toDaysAwarded ?? "undetermined"} days`}
+          {!claimMoved && !awardMoved && statusTransition(change.fromStatus, change.toStatus)}
+        </>
+      )}
+    </ChangeRow>
+  );
+}
+
 function changeBadge(changeType: string) {
   if (changeType === "Added") return <Badge variant="warning">New</Badge>;
   if (changeType === "Removed") return <Badge variant="information">Removed</Badge>;
@@ -251,50 +411,49 @@ function changeBadge(changeType: string) {
 }
 
 function RiskChangeRow({ change }: { change: RiskChange }) {
+  const transition = statusTransition(change.fromStatus, change.toStatus);
   return (
-    <li className="flex flex-wrap items-center gap-2 border-b border-border pb-1.5 text-sm last:border-0">
-      {changeBadge(change.changeType)}
-      <span className="font-medium">{change.title}</span>
-      <span className="text-text-secondary">
-        {change.changeType === "Added" && `raised at score ${change.toScore} (${change.toStatus})`}
-        {change.changeType === "Removed" && `was score ${change.fromScore} (${change.fromStatus})`}
-        {change.changeType === "Modified" && (
-          <>
-            {change.fromStatus !== change.toStatus && `${change.fromStatus} → ${change.toStatus}`}
-            {change.fromStatus !== change.toStatus && change.scoreDelta !== 0 && ", "}
-            {change.scoreDelta !== 0 && `score ${change.fromScore} → ${change.toScore}`}
-          </>
-        )}
-      </span>
-      {change.scoreDelta !== null && change.scoreDelta !== 0 && (
-        <span className={change.scoreDelta > 0 ? "text-critical" : "text-stirling-green"}>
-          {change.scoreDelta > 0 ? "+" : "−"}
-          {Math.abs(change.scoreDelta)}
-        </span>
+    <ChangeRow
+      changeType={change.changeType}
+      name={change.title}
+      trailing={
+        change.scoreDelta !== null && change.scoreDelta !== 0 ? (
+          <span className={change.scoreDelta > 0 ? "text-critical" : "text-stirling-green"}>
+            {change.scoreDelta > 0 ? "+" : "−"}
+            {Math.abs(change.scoreDelta)}
+          </span>
+        ) : undefined
+      }
+    >
+      {change.changeType === "Added" && `raised at score ${change.toScore} (${change.toStatus})`}
+      {change.changeType === "Removed" && `was score ${change.fromScore} (${change.fromStatus})`}
+      {change.changeType === "Modified" && (
+        <>
+          {transition}
+          {transition && change.scoreDelta !== 0 && ", "}
+          {change.scoreDelta !== 0 && `score ${change.fromScore} → ${change.toScore}`}
+        </>
       )}
-    </li>
+    </ChangeRow>
   );
 }
 
 function MilestoneChangeRow({ change }: { change: MilestoneChange }) {
+  const transition = statusTransition(change.fromStatus, change.toStatus);
   return (
-    <li className="flex flex-wrap items-center gap-2 border-b border-border pb-1.5 text-sm last:border-0">
-      {changeBadge(change.changeType)}
-      <span className="font-medium">{change.name}</span>
-      <span className="text-text-secondary">
-        {change.changeType === "Modified" && change.fromStatus !== change.toStatus &&
-          `${change.fromStatus} → ${change.toStatus}`}
-        {change.delayDaysDelta !== null && change.delayDaysDelta !== 0 && (
-          <>
-            {change.fromStatus !== change.toStatus && ", "}
-            {change.delayDaysDelta > 0
+    <ChangeRow changeType={change.changeType} name={change.name}>
+      {change.changeType === "Added" && `added, ${change.toDelayDays} days against baseline`}
+      {change.changeType === "Removed" && "removed from the programme"}
+      {change.changeType === "Modified" && (
+        <>
+          {transition}
+          {transition && change.delayDaysDelta !== 0 && ", "}
+          {change.delayDaysDelta !== null && change.delayDaysDelta !== 0 &&
+            (change.delayDaysDelta > 0
               ? `slipped a further ${change.delayDaysDelta} days`
-              : `recovered ${Math.abs(change.delayDaysDelta)} days`}
-          </>
-        )}
-        {change.changeType === "Added" && `added, ${change.toDelayDays} days against baseline`}
-        {change.changeType === "Removed" && "removed from the programme"}
-      </span>
-    </li>
+              : `recovered ${Math.abs(change.delayDaysDelta)} days`)}
+        </>
+      )}
+    </ChangeRow>
   );
 }

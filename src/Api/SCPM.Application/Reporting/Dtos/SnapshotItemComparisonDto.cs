@@ -24,6 +24,13 @@ public enum ItemChangeType
 /// Only items that changed appear. An unchanged register produces empty lists, not a list of
 /// every row marked unchanged: the point is to be read, and a diff nobody can skim is a diff
 /// nobody reads.
+///
+/// Which registers are covered is not arbitrary. It is exactly the set the aggregate comparison
+/// already counts — risks, milestones, early warnings, compensation events, variations and
+/// extensions of time — so the two views always answer the same question at two levels of
+/// detail. A register that appeared here but not in the aggregates (or the reverse) would invite
+/// exactly the "these two numbers disagree, which is right?" problem that SnapshotMetrics exists
+/// to prevent.
 /// </summary>
 public class SnapshotItemComparisonDto
 {
@@ -37,9 +44,100 @@ public class SnapshotItemComparisonDto
 
     public List<RiskChangeDto> RiskChanges { get; set; } = [];
     public List<MilestoneChangeDto> MilestoneChanges { get; set; } = [];
+    public List<EarlyWarningChangeDto> EarlyWarningChanges { get; set; } = [];
+    public List<CompensationEventChangeDto> CompensationEventChanges { get; set; } = [];
+    public List<VariationChangeDto> VariationChanges { get; set; } = [];
+    public List<ExtensionOfTimeChangeDto> ExtensionOfTimeChanges { get; set; } = [];
 
     /// <summary>Convenience for a caller deciding whether to render anything at all.</summary>
-    public bool HasChanges => RiskChanges.Count > 0 || MilestoneChanges.Count > 0;
+    public bool HasChanges =>
+        RiskChanges.Count > 0
+        || MilestoneChanges.Count > 0
+        || EarlyWarningChanges.Count > 0
+        || CompensationEventChanges.Count > 0
+        || VariationChanges.Count > 0
+        || ExtensionOfTimeChanges.Count > 0;
+}
+
+/// <summary>An early warning's movement. Status is the only thing an early warning has to say
+/// — it is open or it is closed — so that is the only tracked field.</summary>
+public class EarlyWarningChangeDto
+{
+    public Guid EarlyWarningId { get; set; }
+    public string Title { get; set; } = default!;
+    public ItemChangeType ChangeType { get; set; }
+    public string? FromStatus { get; set; }
+    public string? ToStatus { get; set; }
+}
+
+/// <summary>
+/// A compensation event's movement, in both dimensions a CE moves in: where it is in the
+/// NEC4 process, and what it is expected to cost.
+/// </summary>
+public class CompensationEventChangeDto
+{
+    public Guid CompensationEventId { get; set; }
+    public string Reference { get; set; } = default!;
+    public string Title { get; set; } = default!;
+    public ItemChangeType ChangeType { get; set; }
+
+    public string? FromStatus { get; set; }
+    public string? ToStatus { get; set; }
+
+    public decimal? FromEstimatedValue { get; set; }
+    public decimal? ToEstimatedValue { get; set; }
+
+    /// <summary>Null unless the event existed at both points.</summary>
+    public decimal? EstimatedValueDelta =>
+        FromEstimatedValue.HasValue && ToEstimatedValue.HasValue
+            ? ToEstimatedValue - FromEstimatedValue
+            : null;
+}
+
+/// <summary>A variation's movement — status through the SBCC process, and its value impact.</summary>
+public class VariationChangeDto
+{
+    public Guid VariationId { get; set; }
+    public string Reference { get; set; } = default!;
+    public string Description { get; set; } = default!;
+    public ItemChangeType ChangeType { get; set; }
+
+    public string? FromStatus { get; set; }
+    public string? ToStatus { get; set; }
+
+    public decimal? FromValueImpact { get; set; }
+    public decimal? ToValueImpact { get; set; }
+
+    public decimal? ValueImpactDelta =>
+        FromValueImpact.HasValue && ToValueImpact.HasValue ? ToValueImpact - FromValueImpact : null;
+}
+
+/// <summary>
+/// An extension of time's movement. Claimed and awarded days are tracked separately and
+/// deliberately: a claim rising is a contractor's position, an award rising is the project's
+/// programme actually moving, and reporting them as one number would conflate an argument with
+/// a fact.
+/// </summary>
+public class ExtensionOfTimeChangeDto
+{
+    public Guid ExtensionOfTimeId { get; set; }
+    public string Reference { get; set; } = default!;
+    public string Reason { get; set; } = default!;
+    public ItemChangeType ChangeType { get; set; }
+
+    public string? FromStatus { get; set; }
+    public string? ToStatus { get; set; }
+
+    public int? FromDaysClaimed { get; set; }
+    public int? ToDaysClaimed { get; set; }
+
+    /// <summary>Null while a claim is undetermined — which is different from an award of zero,
+    /// and the difference is the whole substance of an extension-of-time dispute.</summary>
+    public int? FromDaysAwarded { get; set; }
+    public int? ToDaysAwarded { get; set; }
+
+    public int? DaysAwardedDelta =>
+        FromDaysAwarded.HasValue && ToDaysAwarded.HasValue ? ToDaysAwarded - FromDaysAwarded : null;
 }
 
 /// <summary>

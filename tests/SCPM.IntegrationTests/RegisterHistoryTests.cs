@@ -200,6 +200,49 @@ public class RegisterHistoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Returns_a_compensation_event_at_its_earlier_estimate()
+    {
+        var eventId = Guid.NewGuid();
+
+        await WithDbAsync(async db =>
+        {
+            db.CompensationEvents.Add(new CompensationEvent
+            {
+                Id = eventId,
+                ProjectId = _projectId,
+                Reference = "CE-001",
+                Title = "Ground conditions",
+                Status = CompensationEventStatus.Notified,
+                EstimatedValue = 120_000m,
+                NotifiedDate = new DateOnly(2026, 1, 20),
+            });
+            await db.SaveChangesAsync();
+        });
+
+        await SeparateVersionsAsync();
+        var beforeReEstimate = await ServerUtcNowAsync();
+        await SeparateVersionsAsync();
+
+        await WithDbAsync(async db =>
+        {
+            var compensationEvent = await db.CompensationEvents.SingleAsync(c => c.Id == eventId);
+            compensationEvent.Status = CompensationEventStatus.Quoted;
+            compensationEvent.EstimatedValue = 310_000m;
+            await db.SaveChangesAsync();
+        });
+
+        var before = await WithHistoryAsync(
+            h => h.CompensationEventsAsOfAsync(_projectId, beforeReEstimate, CancellationToken.None));
+
+        // Confirms the NEC4 tables are genuinely system-versioned too, not only Risk and
+        // Milestone — the IsTemporal configuration is per-entity, so covering one entity proves
+        // nothing about the others.
+        var captured = before.Should().ContainSingle().Subject;
+        captured.EstimatedValue.Should().Be(120_000m);
+        captured.Status.Should().Be(CompensationEventStatus.Notified);
+    }
+
+    [Fact]
     public async Task Returns_a_milestone_with_its_forecast_date_at_that_time()
     {
         var milestoneId = Guid.NewGuid();
