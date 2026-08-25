@@ -103,6 +103,10 @@ jobs:
           cache-dependency-path: src/Web/package-lock.json
       - run: npm ci
       - run: npm run lint
+      # Vitest was a dependency from the start and had no tests until the programme timeline
+      # needed its arithmetic checked without rendering. Running it here so those tests are a
+      # gate rather than something that happens to pass on a developer's machine.
+      - run: npm test
       - run: npm run build
 
   web-e2e-smoke:
