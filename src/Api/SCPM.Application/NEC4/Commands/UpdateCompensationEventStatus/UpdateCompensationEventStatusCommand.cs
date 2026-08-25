@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SCPM.Application.Common.Interfaces;
+using SCPM.Domain.Common;
 using SCPM.Domain.Enums;
 
 namespace SCPM.Application.NEC4.Commands.UpdateCompensationEventStatus;
@@ -22,6 +23,9 @@ public class UpdateCompensationEventStatusCommandHandler : IRequestHandler<Updat
     {
         var ce = await _db.CompensationEvents.FirstOrDefaultAsync(c => c.Id == request.CompensationEventId, cancellationToken)
             ?? throw new KeyNotFoundException($"Compensation event {request.CompensationEventId} not found.");
+
+        StatusTransitions.EnsureAllowed(
+            StatusTransitions.CompensationEvent, ce.Status, request.Status, $"compensation event {ce.Reference}");
 
         ce.Status = request.Status;
         ce.ModifiedBy = _currentUser.UserId ?? Guid.Empty;

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SCPM.Application.Common.Interfaces;
+using SCPM.Domain.Common;
 using SCPM.Domain.Enums;
 
 namespace SCPM.Application.NEC4.Commands.UpdateChangeRegisterItemStatus;
@@ -22,6 +23,9 @@ public class UpdateChangeRegisterItemStatusCommandHandler : IRequestHandler<Upda
     {
         var item = await _db.ChangeRegisterItems.FirstOrDefaultAsync(c => c.Id == request.ChangeRegisterItemId, cancellationToken)
             ?? throw new KeyNotFoundException($"Change register item {request.ChangeRegisterItemId} not found.");
+
+        StatusTransitions.EnsureAllowed(
+            StatusTransitions.ChangeRegisterItem, item.Status, request.Status, $"change {item.Title}");
 
         item.Status = request.Status;
         item.ModifiedBy = _currentUser.UserId ?? Guid.Empty;

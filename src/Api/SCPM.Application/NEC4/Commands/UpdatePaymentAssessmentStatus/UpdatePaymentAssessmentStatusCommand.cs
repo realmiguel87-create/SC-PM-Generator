@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SCPM.Application.Common.Interfaces;
+using SCPM.Domain.Common;
 using SCPM.Domain.Enums;
 
 namespace SCPM.Application.NEC4.Commands.UpdatePaymentAssessmentStatus;
@@ -22,6 +23,10 @@ public class UpdatePaymentAssessmentStatusCommandHandler : IRequestHandler<Updat
     {
         var assessment = await _db.PaymentAssessments.FirstOrDefaultAsync(p => p.Id == request.PaymentAssessmentId, cancellationToken)
             ?? throw new KeyNotFoundException($"Payment assessment {request.PaymentAssessmentId} not found.");
+
+        StatusTransitions.EnsureAllowed(
+            StatusTransitions.PaymentAssessment, assessment.Status, request.Status,
+            $"payment assessment {assessment.AssessmentNumber}");
 
         assessment.Status = request.Status;
         assessment.ModifiedBy = _currentUser.UserId ?? Guid.Empty;

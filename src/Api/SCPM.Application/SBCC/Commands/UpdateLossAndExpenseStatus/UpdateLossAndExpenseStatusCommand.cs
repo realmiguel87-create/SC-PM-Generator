@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SCPM.Application.Common.Interfaces;
+using SCPM.Domain.Common;
 using SCPM.Domain.Enums;
 
 namespace SCPM.Application.SBCC.Commands.UpdateLossAndExpenseStatus;
@@ -37,6 +38,10 @@ public class UpdateLossAndExpenseStatusCommandHandler
         var claim = await _db.LossAndExpenseClaims
             .FirstOrDefaultAsync(c => c.Id == request.LossAndExpenseClaimId, cancellationToken)
             ?? throw new KeyNotFoundException($"Loss and expense claim {request.LossAndExpenseClaimId} not found.");
+
+        StatusTransitions.EnsureAllowed(
+            StatusTransitions.LossAndExpenseClaim, claim.Status, request.Status,
+            $"loss and expense claim {claim.Reference}");
 
         claim.Status = request.Status;
         if (request.AwardedAmount.HasValue)
