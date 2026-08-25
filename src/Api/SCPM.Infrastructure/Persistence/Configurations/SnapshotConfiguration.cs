@@ -17,6 +17,12 @@ public class SnapshotConfiguration : IEntityTypeConfiguration<Snapshot>
         builder.Property(s => s.ApprovedBudgetAtCapture).HasColumnType("decimal(18,2)");
         builder.Property(s => s.ForecastCostAtCapture).HasColumnType("decimal(18,2)");
 
+        // Same precision as the columns they aggregate (CompensationEvent.EstimatedValue,
+        // Variation.ValueImpact). A snapshot that rounded differently from the register it
+        // captured would eventually show a delta where nothing had actually changed.
+        builder.Property(s => s.CompensationEventValue).HasColumnType("decimal(18,2)");
+        builder.Property(s => s.VariationValue).HasColumnType("decimal(18,2)");
+
         builder.HasOne(s => s.Project).WithMany().HasForeignKey(s => s.ProjectId);
         builder.HasIndex(s => new { s.ProjectId, s.CapturedAt });
     }

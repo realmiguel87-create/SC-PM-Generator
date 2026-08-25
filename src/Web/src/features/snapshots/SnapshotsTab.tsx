@@ -45,30 +45,65 @@ export function SnapshotsTab({ projectId }: { projectId: string }) {
               No snapshots yet. Scheduled snapshots run automatically (daily/weekly/monthly); you can also capture one manually above.
             </p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs uppercase text-text-secondary">
-                  <th className="py-1.5 font-medium">Captured</th>
-                  <th className="py-1.5 font-medium">Type</th>
-                  <th className="py-1.5 font-medium">Label</th>
-                  <th className="py-1.5 font-medium">Stage</th>
-                  <th className="py-1.5 font-medium">Budget</th>
-                  <th className="py-1.5 font-medium">Forecast</th>
-                </tr>
-              </thead>
-              <tbody>
-                {snapshots.map((s) => (
-                  <tr key={s.id} className="border-b border-border last:border-0">
-                    <td className="py-1.5">{new Date(s.capturedAt).toLocaleString("en-GB")}</td>
-                    <td className="py-1.5"><Badge variant="information">{s.type}</Badge></td>
-                    <td className="py-1.5">{s.label}</td>
-                    <td className="py-1.5">Stage {s.ribaStageAtCapture}</td>
-                    <td className="py-1.5">{formatCurrency(s.approvedBudgetAtCapture)}</td>
-                    <td className="py-1.5">{formatCurrency(s.forecastCostAtCapture)}</td>
+            // Wide enough to need its own scroll container: the register columns matter, and
+            // squeezing them into the page width would either truncate figures or force the
+            // whole workspace to scroll sideways.
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[56rem] text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase text-text-secondary">
+                    <th className="py-1.5 font-medium">Captured</th>
+                    <th className="py-1.5 font-medium">Type</th>
+                    <th className="py-1.5 font-medium">Label</th>
+                    <th className="py-1.5 font-medium">Stage</th>
+                    <th className="py-1.5 font-medium">Budget</th>
+                    <th className="py-1.5 font-medium">Forecast</th>
+                    <th className="py-1.5 font-medium" title="Open risks, with those scoring 15+ in brackets">
+                      Risks
+                    </th>
+                    <th className="py-1.5 font-medium" title="Open issues, with High/Critical in brackets">
+                      Issues
+                    </th>
+                    <th className="py-1.5 font-medium" title="Delayed milestones, with the worst single slip in brackets">
+                      Programme
+                    </th>
+                    <th className="py-1.5 font-medium" title="Compensation event value carried (NEC4)">
+                      CE value
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {snapshots.map((s) => (
+                    <tr key={s.id} className="border-b border-border last:border-0">
+                      <td className="py-1.5">{new Date(s.capturedAt).toLocaleString("en-GB")}</td>
+                      <td className="py-1.5"><Badge variant="information">{s.type}</Badge></td>
+                      <td className="py-1.5">{s.label}</td>
+                      <td className="py-1.5">Stage {s.ribaStageAtCapture}</td>
+                      <td className="py-1.5">{formatCurrency(s.approvedBudgetAtCapture)}</td>
+                      <td className="py-1.5">{formatCurrency(s.forecastCostAtCapture)}</td>
+                      <td className="py-1.5">
+                        {s.openRiskCount}
+                        {s.highRiskCount > 0 && (
+                          <span className="text-critical"> ({s.highRiskCount} high)</span>
+                        )}
+                      </td>
+                      <td className="py-1.5">
+                        {s.openIssueCount}
+                        {s.severeOpenIssueCount > 0 && (
+                          <span className="text-critical"> ({s.severeOpenIssueCount} severe)</span>
+                        )}
+                      </td>
+                      <td className="py-1.5">
+                        {s.milestonesDelayedCount === 0
+                          ? "On baseline"
+                          : `${s.milestonesDelayedCount} late (worst ${s.worstMilestoneDelayDays}d)`}
+                      </td>
+                      <td className="py-1.5">{formatCurrency(s.compensationEventValue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>

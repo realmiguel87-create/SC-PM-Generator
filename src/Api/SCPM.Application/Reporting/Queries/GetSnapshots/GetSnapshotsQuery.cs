@@ -26,7 +26,27 @@ public class GetSnapshotsQueryHandler : IRequestHandler<GetSnapshotsQuery, List<
                 CapturedAt = s.CapturedAt,
                 RibaStageAtCapture = s.RibaStageAtCapture,
                 ApprovedBudgetAtCapture = s.ApprovedBudgetAtCapture,
-                ForecastCostAtCapture = s.ForecastCostAtCapture
+                ForecastCostAtCapture = s.ForecastCostAtCapture,
+
+                OpenRiskCount = s.OpenRiskCount,
+                HighRiskCount = s.HighRiskCount,
+                TotalOpenRiskScore = s.TotalOpenRiskScore,
+
+                OpenIssueCount = s.OpenIssueCount,
+                SevereOpenIssueCount = s.SevereOpenIssueCount,
+
+                MilestoneCount = s.MilestoneCount,
+                MilestonesCompleteCount = s.MilestonesCompleteCount,
+                MilestonesDelayedCount = s.MilestonesDelayedCount,
+                WorstMilestoneDelayDays = s.WorstMilestoneDelayDays,
+
+                OpenEarlyWarningCount = s.OpenEarlyWarningCount,
+                OpenCompensationEventCount = s.OpenCompensationEventCount,
+                CompensationEventValue = s.CompensationEventValue,
+
+                OpenVariationCount = s.OpenVariationCount,
+                VariationValue = s.VariationValue,
+                ExtensionOfTimeDaysAwarded = s.ExtensionOfTimeDaysAwarded
             })
             .ToListAsync(cancellationToken);
     }
