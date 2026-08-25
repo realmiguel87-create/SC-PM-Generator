@@ -33,4 +33,24 @@ public interface IRegisterHistory
     Task<IReadOnlyList<Variation>> VariationsAsOfAsync(Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<ExtensionOfTime>> ExtensionsOfTimeAsOfAsync(Guid projectId, DateTime asOfUtc, CancellationToken cancellationToken);
+
+    // --- Every version within a window, rather than the state at one instant ---
+    //
+    // The *AsOf reads above answer "what did this register look like then". These answer "what
+    // happened in between", and they are not the same question: an item raised and closed
+    // entirely between two snapshots is absent from both endpoints, so no comparison of the two
+    // endpoints can see it. These return one entry per row *version*, so the same item appears
+    // several times when it changed several times.
+
+    Task<IReadOnlyList<Risk>> RiskVersionsBetweenAsync(Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Milestone>> MilestoneVersionsBetweenAsync(Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<EarlyWarning>> EarlyWarningVersionsBetweenAsync(Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<CompensationEvent>> CompensationEventVersionsBetweenAsync(Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Variation>> VariationVersionsBetweenAsync(Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ExtensionOfTime>> ExtensionOfTimeVersionsBetweenAsync(Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken);
 }

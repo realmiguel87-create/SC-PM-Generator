@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SCPM.Application.Common.Interfaces;
 using SCPM.Domain.Entities;
@@ -71,4 +72,54 @@ public class SqlServerRegisterHistory : IRegisterHistory
             .AsNoTracking()
             .Where(x => x.ProjectId == projectId)
             .ToListAsync(cancellationToken);
+
+    public Task<IReadOnlyList<Risk>> RiskVersionsBetweenAsync(
+        Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken) =>
+        VersionsBetweenAsync(_db.Risks, fromUtc, toUtc, r => r.ProjectId == projectId, cancellationToken);
+
+    public Task<IReadOnlyList<Milestone>> MilestoneVersionsBetweenAsync(
+        Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken) =>
+        VersionsBetweenAsync(_db.Milestones, fromUtc, toUtc, m => m.ProjectId == projectId, cancellationToken);
+
+    public Task<IReadOnlyList<EarlyWarning>> EarlyWarningVersionsBetweenAsync(
+        Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken) =>
+        VersionsBetweenAsync(_db.EarlyWarnings, fromUtc, toUtc, e => e.ProjectId == projectId, cancellationToken);
+
+    public Task<IReadOnlyList<CompensationEvent>> CompensationEventVersionsBetweenAsync(
+        Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken) =>
+        VersionsBetweenAsync(_db.CompensationEvents, fromUtc, toUtc, c => c.ProjectId == projectId, cancellationToken);
+
+    public Task<IReadOnlyList<Variation>> VariationVersionsBetweenAsync(
+        Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken) =>
+        VersionsBetweenAsync(_db.Variations, fromUtc, toUtc, v => v.ProjectId == projectId, cancellationToken);
+
+    public Task<IReadOnlyList<ExtensionOfTime>> ExtensionOfTimeVersionsBetweenAsync(
+        Guid projectId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken) =>
+        VersionsBetweenAsync(_db.ExtensionsOfTime, fromUtc, toUtc, x => x.ProjectId == projectId, cancellationToken);
+
+    /// <summary>
+    /// Every version of every row in the window, via `FOR SYSTEM_TIME BETWEEN`. The window is
+    /// ordered before it is passed to SQL Server, which rejects a range whose start is after its
+    /// end — and a caller comparing a later snapshot against an earlier one is doing something
+    /// legitimate, not something to fail on.
+    ///
+    /// AsNoTracking is not optional here, unlike in the AsOf reads where it is merely correct:
+    /// this returns several versions of the same entity, all sharing one primary key, and the
+    /// change tracker cannot hold those simultaneously.
+    /// </summary>
+    private static async Task<IReadOnlyList<T>> VersionsBetweenAsync<T>(
+        DbSet<T> set,
+        DateTime fromUtc,
+        DateTime toUtc,
+        Expression<Func<T, bool>> forProject,
+        CancellationToken cancellationToken) where T : class
+    {
+        var (start, end) = fromUtc <= toUtc ? (fromUtc, toUtc) : (toUtc, fromUtc);
+
+        return await set
+            .TemporalBetween(start, end)
+            .AsNoTracking()
+            .Where(forProject)
+            .ToListAsync(cancellationToken);
+    }
 }

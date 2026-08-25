@@ -2,11 +2,16 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ApiErrorNotice } from "@/components/ApiErrorNotice";
-import { useCompareSnapshotItems, useCompareSnapshots } from "@/features/reporting/api";
+import {
+  useCompareSnapshotItems,
+  useCompareSnapshots,
+  useSnapshotIntervalActivity,
+} from "@/features/reporting/api";
 import type {
   CompensationEventChange,
   EarlyWarningChange,
   ExtensionOfTimeChange,
+  IntervalActivityItem,
   MilestoneChange,
   RiskChange,
   VariationChange,
@@ -32,6 +37,7 @@ export function SnapshotComparison({ snapshots }: { snapshots: Snapshot[] }) {
 
   const summary = useCompareSnapshots(fromId, toId);
   const items = useCompareSnapshotItems(fromId, toId);
+  const interval = useSnapshotIntervalActivity(fromId, toId);
 
   if (snapshots.length < 2) {
     return (
@@ -203,6 +209,24 @@ export function SnapshotComparison({ snapshots }: { snapshots: Snapshot[] }) {
             ))}
           </ChangeSection>
         )}
+
+        {interval.isError && <ApiErrorNotice error={interval.error} />}
+
+        {interval.data && interval.data.hasActivity && (
+          <section className="flex flex-col gap-2 rounded-md border border-warning/40 bg-warning/5 p-3">
+            <h4 className="text-xs font-medium uppercase text-text-secondary">
+              Also happened in between
+            </h4>
+            <p className="text-xs text-text-secondary">
+              These left no trace at either end of the period, so nothing above can show them.
+            </p>
+            <ul className="flex flex-col gap-1.5">
+              {interval.data.items.map((item) => (
+                <IntervalActivityRow key={`${item.register}-${item.itemId}`} item={item} />
+              ))}
+            </ul>
+          </section>
+        )}
       </CardContent>
     </Card>
   );
@@ -275,6 +299,21 @@ function DeltaRow({
         {delta === 0 ? "No change" : `${sign}${shown}`}
       </td>
     </tr>
+  );
+}
+
+function IntervalActivityRow({ item }: { item: IntervalActivityItem }) {
+  return (
+    <li className="flex flex-wrap items-center gap-2 text-sm">
+      <Badge variant="warning">
+        {item.activityType === "RaisedAndRemoved" ? "Raised & removed" : "Changed & reverted"}
+      </Badge>
+      <span className="text-xs uppercase text-text-secondary">{item.register}</span>
+      <span className="font-medium">{item.name}</span>
+      {item.versionCount > 2 && (
+        <span className="text-text-secondary">({item.versionCount} revisions)</span>
+      )}
+    </li>
   );
 }
 

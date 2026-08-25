@@ -243,6 +243,98 @@ public class RegisterHistoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Finds_versions_of_a_risk_raised_and_removed_between_two_points()
+    {
+        var start = await ServerUtcNowAsync();
+        await SeparateVersionsAsync();
+
+        var riskId = Guid.NewGuid();
+
+        await WithDbAsync(async db =>
+        {
+            db.Risks.Add(new Risk
+            {
+                Id = riskId,
+                ProjectId = _projectId,
+                Title = "Asbestos found in survey",
+                Category = "Construction",
+                Status = RiskStatus.Open,
+                Probability = 4,
+                Impact = 4,
+            });
+            await db.SaveChangesAsync();
+        });
+
+        await SeparateVersionsAsync();
+
+        await WithDbAsync(async db =>
+        {
+            var risk = await db.Risks.SingleAsync(r => r.Id == riskId);
+            risk.Status = RiskStatus.Closed;
+            await db.SaveChangesAsync();
+        });
+
+        await SeparateVersionsAsync();
+
+        await WithDbAsync(async db =>
+        {
+            var risk = await db.Risks.SingleAsync(r => r.Id == riskId);
+            risk.IsDeleted = true;
+            await db.SaveChangesAsync();
+        });
+
+        await SeparateVersionsAsync();
+        var end = await ServerUtcNowAsync();
+
+        var atStart = await WithHistoryAsync(h => h.RisksAsOfAsync(_projectId, start, CancellationToken.None));
+        var atEnd = await WithHistoryAsync(h => h.RisksAsOfAsync(_projectId, end, CancellationToken.None));
+        var versions = await WithHistoryAsync(h => h.RiskVersionsBetweenAsync(_projectId, start, end, CancellationToken.None));
+
+        // The entire premise of interval activity: invisible at both endpoints, present in the
+        // window. If BETWEEN behaved like two AS OF reads this would find nothing.
+        atStart.Should().BeEmpty();
+        atEnd.Should().BeEmpty();
+
+        var riskVersions = versions.Where(r => r.Id == riskId).ToList();
+        riskVersions.Should().HaveCountGreaterThanOrEqualTo(2,
+            "the risk was open, then closed, before being removed");
+        riskVersions.Select(r => r.Status).Should().Contain([RiskStatus.Open, RiskStatus.Closed]);
+    }
+
+    [Fact]
+    public async Task Orders_the_window_before_querying_so_a_reversed_range_still_works()
+    {
+        var start = await ServerUtcNowAsync();
+        await SeparateVersionsAsync();
+
+        await WithDbAsync(async db =>
+        {
+            db.Risks.Add(new Risk
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = _projectId,
+                Title = "Reversed range",
+                Category = "Cost",
+                Status = RiskStatus.Open,
+                Probability = 2,
+                Impact = 2,
+            });
+            await db.SaveChangesAsync();
+        });
+
+        await SeparateVersionsAsync();
+        var end = await ServerUtcNowAsync();
+
+        // SQL Server rejects a BETWEEN whose start is after its end. Comparing a later snapshot
+        // against an earlier one is a legitimate thing to ask, so the range is ordered before it
+        // reaches the database rather than failing.
+        var reversed = await WithHistoryAsync(
+            h => h.RiskVersionsBetweenAsync(_projectId, end, start, CancellationToken.None));
+
+        reversed.Should().NotBeEmpty();
+    }
+
+    [Fact]
     public async Task Returns_a_milestone_with_its_forecast_date_at_that_time()
     {
         var milestoneId = Guid.NewGuid();

@@ -166,6 +166,31 @@ export interface ExtensionOfTimeChange {
   daysAwardedDelta: number | null;
 }
 
+export type IntervalActivityType = "RaisedAndRemoved" | "ChangedAndReverted";
+
+export interface IntervalActivityItem {
+  register: string;
+  itemId: string;
+  name: string;
+  activityType: IntervalActivityType;
+  versionCount: number;
+}
+
+/**
+ * Activity between two snapshots that comparing their endpoints cannot reveal — items raised and
+ * removed inside the window, or changed and changed back. A pointer rather than a second diff.
+ */
+export interface SnapshotIntervalActivity {
+  fromSnapshotId: string;
+  fromLabel: string;
+  fromCapturedAt: string;
+  toSnapshotId: string;
+  toLabel: string;
+  toCapturedAt: string;
+  items: IntervalActivityItem[];
+  hasActivity: boolean;
+}
+
 /** Which items changed between two snapshots, as opposed to how many. */
 export interface SnapshotItemComparison {
   fromSnapshotId: string;
