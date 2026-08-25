@@ -7,6 +7,7 @@ using SCPM.Application.SBCC.Commands.CreateInterimValuation;
 using SCPM.Application.SBCC.Commands.CreateLossAndExpenseClaim;
 using SCPM.Application.SBCC.Commands.CreateVariation;
 using SCPM.Application.SBCC.Commands.UpdateExtensionOfTimeStatus;
+using SCPM.Application.SBCC.Commands.UpdateLossAndExpenseStatus;
 using SCPM.Application.SBCC.Commands.UpdateVariationStatus;
 using SCPM.Application.SBCC.Dtos;
 using SCPM.Application.SBCC.Queries.GetArchitectsInstructions;
@@ -85,6 +86,18 @@ public class SBCCController : ControllerBase
     [Authorize(Policy = "CanWrite")]
     public async Task<ActionResult<Guid>> CreateLossAndExpenseClaim(Guid projectId, CreateLossAndExpenseClaimRequest request, CancellationToken ct)
         => Ok(await _mediator.Send(new CreateLossAndExpenseClaimCommand(projectId, request.Reference, request.Description, request.ClaimedAmount), ct));
+
+    public record UpdateLossAndExpenseStatusRequest(LossAndExpenseStatus Status, decimal? AwardedAmount);
+
+    [HttpPut("~/api/sbcc/loss-and-expense/{lossAndExpenseClaimId:guid}/status")]
+    [Authorize(Policy = "CanWrite")]
+    public async Task<IActionResult> UpdateLossAndExpenseStatus(
+        Guid lossAndExpenseClaimId, UpdateLossAndExpenseStatusRequest request, CancellationToken ct)
+    {
+        await _mediator.Send(
+            new UpdateLossAndExpenseStatusCommand(lossAndExpenseClaimId, request.Status, request.AwardedAmount), ct);
+        return NoContent();
+    }
 
     // --- Architect's Instructions ---
 

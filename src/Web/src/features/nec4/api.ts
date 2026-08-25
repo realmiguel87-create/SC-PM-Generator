@@ -79,3 +79,12 @@ export function useUpdatePaymentAssessmentStatus(projectId: string) {
 export const useChangeRegisterItems = (projectId?: string) => useRegister<ChangeRegisterItem>(projectId, "change-register", "change-register");
 export const useCreateChangeRegisterItem = (projectId: string) =>
   useCreate<{ title: string; valueImpact: number; timeImpactDays: number }>(projectId, "change-register", "change-register");
+
+export function useUpdateChangeRegisterItemStatus(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { changeRegisterItemId: string; status: ChangeRegisterItem["status"] }) =>
+      apiClient.put<void>(`/nec4/change-register/${vars.changeRegisterItemId}/status`, { status: vars.status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key(projectId, "change-register") }),
+  });
+}
