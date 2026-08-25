@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Authenticating…</title>
+  </head>
+  <body>
+    <!--
+      Deliberately empty. MSAL renews access tokens silently by navigating a hidden iframe to the
+      redirect URI. If that URI points at the app root, the entire React app boots inside the
+      hidden iframe, and MSAL blocks it with "BrowserAuthError: block_iframe_reload" to avoid an
+      infinite reload loop — so every acquireTokenSilent call fails, no request is ever sent, and
+      the UI reports a failure with nothing in the network log to explain it.
+
+      This page loads instantly and does nothing, which is all the iframe needs.
+
+      Note the split: msalConfig.auth.redirectUri stays on the app origin, because the
+      *interactive* redirect flow needs the app to load and call handleRedirectPromise(). Only the
+      silent request overrides it to point here — see getAccessToken in src/lib/api-client.ts.
+      Both URIs must be registered as SPA redirect URIs on the Entra ID app registration.
+    -->
+  </body>
+</html>

@@ -31,6 +31,13 @@ export const msalConfig: Configuration = {
     redirectUri: window.location.origin,
     postLogoutRedirectUri: window.location.origin,
   },
+  system: {
+    // Default is a few seconds, which is not enough on a slow or high-latency connection — the
+    // hidden renewal iframe has to reach login.microsoftonline.com and come back within it, and
+    // exceeding it surfaces as an opaque "BrowserAuthError: timed_out" with no indication that
+    // the network was simply slow. Raising it costs nothing when the network is fast.
+    iframeBridgeTimeout: 20000,
+  },
   cache: {
     // sessionStorage, not localStorage — tokens shouldn't outlive the browser tab for a
     // council system handling governance/commercial data, and this avoids silently persisting
@@ -43,3 +50,17 @@ export const msalConfig: Configuration = {
 export const loginRequest = {
   scopes: [apiScope],
 };
+
+/**
+ * Redirect URI for *silent* token renewal only.
+ *
+ * MSAL renews access tokens by navigating a hidden iframe to the redirect URI. Left on the app
+ * origin, that boots the whole React app inside the iframe and MSAL aborts with
+ * "BrowserAuthError: block_iframe_reload" — every acquireTokenSilent call then fails before any
+ * HTTP request is made, so nothing appears in the network log to explain the failure.
+ *
+ * Kept separate from msalConfig.auth.redirectUri, which must stay on the app origin so the
+ * interactive redirect flow can load the app and call handleRedirectPromise(). Both must be
+ * registered as SPA redirect URIs on the Entra ID app registration.
+ */
+export const silentRedirectUri = `${window.location.origin}/blank.html`;
