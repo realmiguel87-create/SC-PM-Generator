@@ -43,3 +43,17 @@ export const msalConfig: Configuration = {
 export const loginRequest = {
   scopes: [apiScope],
 };
+
+/**
+ * Redirect URI for *silent* token renewal only.
+ *
+ * MSAL renews access tokens by navigating a hidden iframe to the redirect URI. Left on the app
+ * origin, that boots the whole React app inside the iframe and MSAL aborts with
+ * "BrowserAuthError: block_iframe_reload" — every acquireTokenSilent call then fails before any
+ * HTTP request is made, so nothing appears in the network log to explain the failure.
+ *
+ * Kept separate from msalConfig.auth.redirectUri, which must stay on the app origin so the
+ * interactive redirect flow can load the app and call handleRedirectPromise(). Both must be
+ * registered as SPA redirect URIs on the Entra ID app registration.
+ */
+export const silentRedirectUri = `${window.location.origin}/blank.html`;

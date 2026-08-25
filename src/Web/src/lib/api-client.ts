@@ -4,7 +4,7 @@
  */
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { msalInstance } from "@/lib/msal-instance";
-import { loginRequest } from "@/lib/msal-config";
+import { loginRequest, silentRedirectUri } from "@/lib/msal-config";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -13,7 +13,15 @@ async function getAccessToken(): Promise<string | null> {
   if (!account) return null; // Not signed in — request goes out unauthenticated, API 401s it.
 
   try {
-    const result = await msalInstance.acquireTokenSilent({ ...loginRequest, account });
+    const result = await msalInstance.acquireTokenSilent({
+      ...loginRequest,
+      account,
+      // Silent renewal runs in a hidden iframe. Without this override the iframe navigates to
+      // the app origin and boots the entire React app inside itself, which MSAL rejects with
+      // "BrowserAuthError: block_iframe_reload" — failing before any HTTP request is made, so
+      // nothing shows in the network log. See silentRedirectUri in msal-config.ts.
+      redirectUri: silentRedirectUri,
+    });
     return result.accessToken;
   } catch (error) {
     // Logged, not silently swallowed. Returning null without a trace makes a failed token
