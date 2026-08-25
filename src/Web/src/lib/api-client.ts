@@ -7,6 +7,27 @@ import { loginRequest, silentRedirectUri } from "@/lib/msal-config";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
+/**
+ * A failed request, carrying the HTTP status as a value rather than buried in the message text.
+ *
+ * Previously this was a plain Error whose message was the API's ProblemDetails `title` when there
+ * was one and "…failed with status 401" when there wasn't, and callers that needed to tell a 401
+ * from a 403 regexed the number back out of the message. That worked only in the second case: an
+ * API answering 403 with `{"title":"Forbidden"}` produced a message containing no number at all,
+ * and the UI fell through to a generic "the request failed" instead of saying the account lacked
+ * a role. It failed quietly and plausibly — the message still looked like a message, so nothing
+ * drew attention to it. Found by the api-backed E2E tests.
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function getAccessToken(): Promise<string | null> {
   const account = msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0];
   if (!account) return null; // Not signed in — request goes out unauthenticated, API 401s it.
@@ -60,7 +81,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const problem = await response.json().catch(() => null);
-    throw new Error(problem?.title ?? `Request to ${path} failed with status ${response.status}`);
+    throw new ApiError(
+      problem?.title ?? `Request to ${path} failed with status ${response.status}`,
+      response.status,
+    );
   }
 
   if (response.status === 204) return undefined as T;
@@ -81,7 +105,10 @@ async function requestForm<T>(path: string, formData: FormData): Promise<T> {
 
   if (!response.ok) {
     const problem = await response.json().catch(() => null);
-    throw new Error(problem?.title ?? `Upload to ${path} failed with status ${response.status}`);
+    throw new ApiError(
+      problem?.title ?? `Upload to ${path} failed with status ${response.status}`,
+      response.status,
+    );
   }
 
   return (await response.json()) as T;

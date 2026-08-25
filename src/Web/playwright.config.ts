@@ -1,13 +1,20 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Frontend-only smoke test: runs against the built app (`npm run build` + `vite preview`), with
-// no backend API running. That's deliberate, not an oversight — MSAL auth isn't wired into the
-// frontend yet (see src/lib/api-client.ts), so even a live API would 401 every request from
-// here. What this verifies is that the app shell boots and every top-level route renders and is
-// navigable without an uncaught exception, including while every data fetch on the page is
-// failing — exactly the condition the app is actually in today. The build itself is expected to
-// have already run (see package.json's test:e2e script, or the CI job) — this config only
-// serves the result.
+// Runs against the built app (`npm run build` + `vite preview`) with no backend API running.
+// That's deliberate. Two suites live here and neither needs one:
+//
+//   smoke.spec.ts      — the app shell boots and every top-level route renders and is navigable
+//                        without an uncaught exception while every data fetch on the page is
+//                        failing, which is the app's real condition with no API reachable.
+//   api-backed.spec.ts — stubs /api/* at the browser's network layer, covering successful
+//                        rendering, the 401/403/unreachable error states, and the create-project
+//                        payload. What it deliberately does NOT cover is a real Entra ID token or
+//                        the API's own auth pipeline: SCPM.IntegrationTests drives those against
+//                        a real SQL Server, which is the right place for them. The header of
+//                        api-backed.spec.ts sets out the reasoning.
+//
+// The build is expected to have run already (see package.json's test:e2e script, or the CI job);
+// this config only serves the result.
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
