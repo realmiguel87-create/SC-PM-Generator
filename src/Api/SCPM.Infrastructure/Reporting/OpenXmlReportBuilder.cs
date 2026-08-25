@@ -1,6 +1,7 @@
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using SCPM.Application.Reporting.Dtos;
+using SCPM.Application.Reporting.Export;
 using D = DocumentFormat.OpenXml.Drawing;
 using P = DocumentFormat.OpenXml.Presentation;
 using W = DocumentFormat.OpenXml.Wordprocessing;
@@ -98,6 +99,101 @@ internal static class OpenXmlReportBuilder
         return new W.Paragraph(run);
     }
 
+    // --- DOCX: tabular documents (snapshot comparison) ---
+
+    public static byte[] BuildTabularDocx(ExportDocument document, string purple, string secondary)
+    {
+        using var stream = new MemoryStream();
+
+        using (var wordDocument = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document))
+        {
+            var main = wordDocument.AddMainDocumentPart();
+            var body = new W.Body();
+
+            body.Append(TextParagraph("Stirling Council", 20, Rgb(purple), bold: true));
+            body.Append(TextParagraph(document.Title, 36, "000000", bold: true));
+            body.Append(TextParagraph(document.Subtitle, 22, Rgb(secondary)));
+
+            foreach (var line in document.MetaLines)
+                body.Append(TextParagraph(line, 16, Rgb(secondary)));
+
+            foreach (var table in document.Tables)
+            {
+                body.Append(TextParagraph(table.Heading, 26, Rgb(purple), bold: true));
+
+                if (table.Rows.Count == 0)
+                {
+                    body.Append(TextParagraph(table.EmptyMessage ?? "No entries.", 20, Rgb(secondary)));
+                    continue;
+                }
+
+                body.Append(Table(table, purple));
+
+                // Word merges two adjacent tables into one if nothing separates them, which would
+                // silently run six sections together into a single unreadable grid.
+                body.Append(new W.Paragraph());
+            }
+
+            main.Document = new W.Document(body);
+        }
+
+        return stream.ToArray();
+    }
+
+    private static W.Table Table(ExportTable table, string purple)
+    {
+        // Three orderings matter here and none of them is alphabetical or intuitive; all three
+        // were got wrong first time and caught by OpenXmlValidator rather than by reading.
+        //   w:tblPr    — tblW before tblBorders
+        //   tblBorders — top, left, bottom, right, insideH, insideV
+        //   w:tbl      — tblGrid before any tr
+        var element = new W.Table(
+            new W.TableProperties(
+                new W.TableWidth { Width = "5000", Type = W.TableWidthUnitValues.Pct },
+                new W.TableBorders(
+                    new W.TopBorder { Val = W.BorderValues.Single, Size = 4, Color = "D9D9D9" },
+                    new W.LeftBorder { Val = W.BorderValues.Single, Size = 4, Color = "D9D9D9" },
+                    new W.BottomBorder { Val = W.BorderValues.Single, Size = 4, Color = "D9D9D9" },
+                    new W.RightBorder { Val = W.BorderValues.Single, Size = 4, Color = "D9D9D9" },
+                    new W.InsideHorizontalBorder { Val = W.BorderValues.Single, Size = 4, Color = "D9D9D9" },
+                    new W.InsideVerticalBorder { Val = W.BorderValues.Single, Size = 4, Color = "D9D9D9" })),
+            // Equal-width columns. The grid is required even when the widths are nominal — Word
+            // uses it to lay the table out, and a table without one is invalid.
+            new W.TableGrid(table.Columns.Select(_ => new W.GridColumn())));
+
+        var header = new W.TableRow();
+        foreach (var column in table.Columns)
+            header.Append(Cell(column, 18, Rgb(purple), bold: true, shadeHex: "EFECF5"));
+        element.Append(header);
+
+        foreach (var row in table.Rows)
+        {
+            var tableRow = new W.TableRow();
+            foreach (var cell in row) tableRow.Append(Cell(cell, 18, "000000"));
+            element.Append(tableRow);
+        }
+
+        return element;
+    }
+
+    private static W.TableCell Cell(string text, int halfPoints, string rgb, bool bold = false, string? shadeHex = null)
+    {
+        var properties = new W.TableCellProperties();
+        if (shadeHex is not null)
+        {
+            properties.Append(new W.Shading
+            {
+                Val = W.ShadingPatternValues.Clear,
+                Color = "auto",
+                Fill = shadeHex,
+            });
+        }
+
+        // A table cell must contain at least one paragraph; an empty one produces a file Word
+        // reports as corrupt rather than one with a blank cell.
+        return new W.TableCell(properties, TextParagraph(text, halfPoints, rgb, bold));
+    }
+
     // --- PPTX ---
 
     // 16:9 at 914,400 EMU per inch — the default for every version of PowerPoint since 2013.
@@ -110,6 +206,39 @@ internal static class OpenXmlReportBuilder
         string purple,
         string secondary)
     {
+        var subtitle = $"{report.ReportType} · {report.ProjectRef} — {report.ProjectName}";
+        if (report.MeetingDate.HasValue)
+            subtitle += $"\nMeeting date: {report.MeetingDate:d MMMM yyyy}";
+
+        var slides = new List<(string Title, string Body)> { (report.Title, subtitle) };
+
+        // One slide per populated section. Long sections are not paginated across slides — see
+        // docs/roadmap.md; a section longer than a slide overflows its text box rather than
+        // continuing onto a second slide.
+        foreach (var (heading, select) in sections)
+        {
+            var value = select(report);
+            if (string.IsNullOrWhiteSpace(value)) continue;
+            slides.Add((heading, value));
+        }
+
+        return BuildPptxFrom(slides, purple, secondary, monospacedBody: false);
+    }
+
+    /// <summary>
+    /// Assembles a presentation from a list of title/body slides.
+    ///
+    /// A presentation will not open without a slide master, a layout and a theme, even when every
+    /// slide is blank and none of them is referenced for styling — they are structural
+    /// requirements of the format rather than design choices, which is why this scaffolding is
+    /// here at all and why it is built once rather than per caller.
+    /// </summary>
+    private static byte[] BuildPptxFrom(
+        IReadOnlyList<(string Title, string Body)> slides,
+        string purple,
+        string secondary,
+        bool monospacedBody)
+    {
         using var stream = new MemoryStream();
 
         using (var presentation = PresentationDocument.Create(stream, PresentationDocumentType.Presentation))
@@ -117,9 +246,6 @@ internal static class OpenXmlReportBuilder
             var presentationPart = presentation.AddPresentationPart();
             presentationPart.Presentation = new P.Presentation();
 
-            // A presentation will not open without a slide master, a layout and a theme, even
-            // when every slide is blank and none of them is referenced for styling. They are
-            // structural requirements of the format rather than design choices.
             var masterPart = presentationPart.AddNewPart<SlideMasterPart>("rIdMaster");
             var layoutPart = masterPart.AddNewPart<SlideLayoutPart>("rIdLayout");
 
@@ -139,31 +265,15 @@ internal static class OpenXmlReportBuilder
             var slideId = 256U;
             var slideNumber = 1;
 
-            void AddSlide(string title, string body)
+            foreach (var (title, body) in slides)
             {
                 var relationshipId = $"rIdSlide{slideNumber}";
                 var slidePart = presentationPart.AddNewPart<SlidePart>(relationshipId);
-                slidePart.Slide = BuildSlide(title, body, purple);
+                slidePart.Slide = BuildSlide(title, body, purple, monospacedBody);
                 slidePart.AddPart(layoutPart, $"rIdLayout{slideNumber}");
 
                 slideIdList.Append(new P.SlideId { Id = slideId++, RelationshipId = relationshipId });
                 slideNumber++;
-            }
-
-            var subtitle = $"{report.ReportType} · {report.ProjectRef} — {report.ProjectName}";
-            if (report.MeetingDate.HasValue)
-                subtitle += $"\nMeeting date: {report.MeetingDate:d MMMM yyyy}";
-
-            AddSlide(report.Title, subtitle);
-
-            // One slide per populated section. Long sections are not paginated across slides —
-            // see docs/roadmap.md; a section longer than a slide will overflow its text box
-            // rather than continuing onto a second slide.
-            foreach (var (heading, select) in sections)
-            {
-                var value = select(report);
-                if (string.IsNullOrWhiteSpace(value)) continue;
-                AddSlide(heading, value);
             }
 
             presentationPart.Presentation.Append(
@@ -176,21 +286,79 @@ internal static class OpenXmlReportBuilder
         return stream.ToArray();
     }
 
-    private static P.Slide BuildSlide(string title, string body, string purple)
+    /// <summary>
+    /// Tables rendered as aligned text lines, one slide per table.
+    ///
+    /// PresentationML can draw a real table (a graphicFrame wrapping a:tbl), and it is not worth
+    /// it here: a comparison table runs to six columns and a slide is not where anyone reads six
+    /// columns of figures. The deck exists to be talked over, and the PDF and XLSX exports carry
+    /// the same content in a form suited to being read. Columns are padded to align, which is why
+    /// the shape uses a monospaced typeface.
+    /// </summary>
+    public static byte[] BuildTabularPptx(ExportDocument document, string purple, string secondary)
+    {
+        var slides = new List<(string Title, string Body)>
+        {
+            (document.Title, string.Join("\n", new[] { document.Subtitle }.Concat(document.MetaLines))),
+        };
+
+        foreach (var table in document.Tables)
+        {
+            slides.Add((
+                table.Heading,
+                table.Rows.Count == 0
+                    ? table.EmptyMessage ?? "No entries."
+                    : RenderAsText(table)));
+        }
+
+        return BuildPptxFrom(slides, purple, secondary, monospacedBody: true);
+    }
+
+    private static string RenderAsText(ExportTable table)
+    {
+        var widths = table.Columns
+            .Select((column, index) => Math.Max(
+                column.Length,
+                table.Rows.Count == 0 ? 0 : table.Rows.Max(row => index < row.Count ? row[index].Length : 0)))
+            .ToArray();
+
+        // Capped so one long description cannot push every later column off the slide.
+        const int maxWidth = 28;
+        for (var i = 0; i < widths.Length; i++) widths[i] = Math.Min(widths[i], maxWidth);
+
+        var lines = new List<string> { Line(table.Columns, widths) };
+        lines.AddRange(table.Rows.Select(row => Line(row, widths)));
+
+        return string.Join("\n", lines);
+    }
+
+    private static string Line(IReadOnlyList<string> cells, int[] widths) =>
+        string.Join("  ", cells.Select((cell, i) =>
+        {
+            var width = i < widths.Length ? widths[i] : cell.Length;
+            var text = cell.Length <= width ? cell : cell[..Math.Max(0, width - 1)] + "…";
+            return text.PadRight(width);
+        })).TrimEnd();
+
+    private static P.Slide BuildSlide(string title, string body, string purple, bool monospacedBody)
     {
         var tree = EmptyShapeTree();
 
         tree.Append(TextShape(2U, "Title", title,
             x: 457200, y: 685800, cx: 11277600, cy: 1143000, fontSize: 3200, bold: true, rgb: Rgb(purple)));
 
+        // Tabular slides use a smaller monospaced face: the columns are aligned with padding
+        // spaces, which a proportional font would immediately undo.
         tree.Append(TextShape(3U, "Body", body,
-            x: 457200, y: 2057400, cx: 11277600, cy: 3600000, fontSize: 1800, bold: false, rgb: "1A1A1A"));
+            x: 457200, y: 2057400, cx: 11277600, cy: 3600000,
+            fontSize: monospacedBody ? 1100 : 1800, bold: false, rgb: "1A1A1A",
+            typeface: monospacedBody ? "Consolas" : null));
 
         return new P.Slide(new P.CommonSlideData(tree), new P.ColorMapOverride(new D.MasterColorMapping()));
     }
 
     private static P.Shape TextShape(uint id, string name, string text,
-        long x, long y, long cx, long cy, int fontSize, bool bold, string rgb)
+        long x, long y, long cx, long cy, int fontSize, bool bold, string rgb, string? typeface = null)
     {
         var textBody = new P.TextBody(
             new D.BodyProperties { Wrap = D.TextWrappingValues.Square },
@@ -200,14 +368,18 @@ internal static class OpenXmlReportBuilder
         // a run, so a multi-line body becomes multiple paragraphs.
         foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
         {
-            textBody.Append(new D.Paragraph(new D.Run(
-                new D.RunProperties(new D.SolidFill(new D.RgbColorModelHex { Val = rgb }))
-                {
-                    Language = "en-GB",
-                    FontSize = fontSize,
-                    Bold = bold,
-                },
-                new D.Text(line))));
+            var runProperties = new D.RunProperties(new D.SolidFill(new D.RgbColorModelHex { Val = rgb }))
+            {
+                Language = "en-GB",
+                FontSize = fontSize,
+                Bold = bold,
+            };
+
+            // Schema order: the fill is already in place, and the latin typeface follows it.
+            if (typeface is not null)
+                runProperties.Append(new D.LatinFont { Typeface = typeface });
+
+            textBody.Append(new D.Paragraph(new D.Run(runProperties, new D.Text(line))));
         }
 
         return new P.Shape(

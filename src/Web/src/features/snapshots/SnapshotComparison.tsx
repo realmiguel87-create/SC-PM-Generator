@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ApiErrorNotice } from "@/components/ApiErrorNotice";
 import {
+  exportComparisonUrl,
   useCompareSnapshotItems,
   useCompareSnapshots,
   useSnapshotIntervalActivity,
@@ -29,6 +30,9 @@ import type { Snapshot } from "./api";
  * is driven by an explicit `higherIsWorse` flag per row rather than by the sign alone: a budget
  * rising and a risk score rising are not the same news.
  */
+// The export carries all three views in one file, so the same list serves every format.
+const EXPORT_FORMATS = ["Pdf", "Docx", "Pptx", "Xlsx", "Csv", "Json"] as const;
+
 export function SnapshotComparison({ snapshots }: { snapshots: Snapshot[] }) {
   // Newest is the natural "to", the one before it the natural "from" — the comparison people
   // want most of the time, available without touching the selects.
@@ -64,6 +68,25 @@ export function SnapshotComparison({ snapshots }: { snapshots: Snapshot[] }) {
         <div className="flex flex-wrap items-end gap-3">
           <SnapshotSelect label="From" value={fromId} onChange={setFromId} snapshots={snapshots} />
           <SnapshotSelect label="To" value={toId} onChange={setToId} snapshots={snapshots} />
+
+          {!sameSnapshot && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-text-secondary">Export</span>
+              <div className="flex flex-wrap gap-1.5">
+                {EXPORT_FORMATS.map((format) => (
+                  <a
+                    key={format}
+                    href={exportComparisonUrl(fromId, toId, format.toLowerCase())}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-md border border-border px-2 py-1 text-xs hover:border-stirling-purple hover:text-stirling-purple"
+                  >
+                    {format}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {sameSnapshot && (

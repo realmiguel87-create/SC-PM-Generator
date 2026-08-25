@@ -6,6 +6,7 @@ using SCPM.Application.Reporting.Commands.CreateCommitteeReport;
 using SCPM.Application.Reporting.Commands.SubmitCommitteeReport;
 using SCPM.Application.Reporting.Commands.UpdateCommitteeReport;
 using SCPM.Application.Reporting.Dtos;
+using SCPM.Application.Reporting.Export;
 using SCPM.Application.Reporting.Queries.CompareSnapshotItems;
 using SCPM.Application.Reporting.Queries.CompareSnapshots;
 using SCPM.Application.Reporting.Queries.GetCommitteeReport;
@@ -21,10 +22,13 @@ public class CommitteeReportsController : ControllerBase
 {
     private readonly ISender _mediator;
     private readonly ICommitteeReportExporter _exporter;
+    private readonly ITabularDocumentExporter _tabularExporter;
 
-    public CommitteeReportsController(ISender mediator, ICommitteeReportExporter exporter)
+    public CommitteeReportsController(
+        ISender mediator, ICommitteeReportExporter exporter, ITabularDocumentExporter tabularExporter)
     {
         _mediator = mediator;
+        _tabularExporter = tabularExporter;
         _exporter = exporter;
     }
 
@@ -120,4 +124,33 @@ public class CommitteeReportsController : ControllerBase
     public async Task<ActionResult<SnapshotIntervalActivityDto>> GetSnapshotIntervalActivity(
         [FromQuery] Guid fromSnapshotId, [FromQuery] Guid toSnapshotId, CancellationToken ct)
         => Ok(await _mediator.Send(new GetSnapshotIntervalActivityQuery(fromSnapshotId, toSnapshotId), ct));
+
+    /// <summary>
+    /// The whole comparison as a downloadable document: headline movements, the item-level
+    /// changes, and the activity that happened in between.
+    ///
+    /// All three go in one file rather than three, because they answer one question at three
+    /// depths and a pack containing only the aggregates would be true and misleading — it would
+    /// show the risk count rising by two without showing that a third risk was raised and closed
+    /// inside the period.
+    /// </summary>
+    [HttpGet("api/snapshots/compare/export/{format}")]
+    public async Task<IActionResult> ExportComparison(
+        ReportExportFormat format,
+        [FromQuery] Guid fromSnapshotId,
+        [FromQuery] Guid toSnapshotId,
+        CancellationToken ct)
+    {
+        var summary = await _mediator.Send(new CompareSnapshotsQuery(fromSnapshotId, toSnapshotId), ct);
+        var items = await _mediator.Send(new CompareSnapshotItemsQuery(fromSnapshotId, toSnapshotId), ct);
+        var interval = await _mediator.Send(new GetSnapshotIntervalActivityQuery(fromSnapshotId, toSnapshotId), ct);
+
+        var document = ComparisonExportBuilder.Build(summary, items, interval);
+        var bytes = await _tabularExporter.ExportAsync(document, format, ct);
+
+        var fileName = $"Snapshot-comparison-{summary.FromCapturedAt:yyyy-MM-dd}-to-"
+            + $"{summary.ToCapturedAt:yyyy-MM-dd}.{format.ToString().ToLowerInvariant()}";
+
+        return File(bytes, ContentTypes[format], fileName);
+    }
 }
