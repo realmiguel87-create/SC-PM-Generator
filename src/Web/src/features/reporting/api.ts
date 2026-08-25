@@ -106,6 +106,17 @@ export function useSnapshotIntervalActivity(
   });
 }
 
+/** Download URL for the whole snapshot comparison — headline movements, item changes, and the
+ *  activity in between — in any of the six export formats. */
+export function exportComparisonUrl(
+  fromSnapshotId: string,
+  toSnapshotId: string,
+  format: string,
+) {
+  const base = import.meta.env.VITE_API_BASE_URL ?? "/api";
+  return `${base}/snapshots/compare/export/${format}?fromSnapshotId=${fromSnapshotId}&toSnapshotId=${toSnapshotId}`;
+}
+
 export function exportReportUrl(reportId: string, format: string) {
   const base = import.meta.env.VITE_API_BASE_URL ?? "/api";
   return `${base}/committee-reports/${reportId}/export/${format}`;

@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddScoped<IBlobArchiveStore, AzureBlobArchiveStore>();
 
         services.AddScoped<ICommitteeReportExporter, CommitteeReportExporter>();
+        services.AddScoped<ITabularDocumentExporter, TabularDocumentExporter>();
 
         return services;
     }
