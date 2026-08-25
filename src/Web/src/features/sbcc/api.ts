@@ -47,6 +47,23 @@ export function useUpdateExtensionOfTimeStatus(projectId: string) {
 export const useLossAndExpenseClaims = (projectId?: string) => useRegister<LossAndExpenseClaim>(projectId, "loss-and-expense", "loss-and-expense");
 export const useCreateLossAndExpenseClaim = (projectId: string) =>
   useCreate<{ reference: string; description: string; claimedAmount: number }>(projectId, "loss-and-expense", "loss-and-expense");
+export function useUpdateLossAndExpenseStatus(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    // awardedAmount is omitted rather than sent as 0 when there is no award: the API leaves the
+    // stored value untouched on null, and an award of zero is a determination, not an absence.
+    mutationFn: (vars: {
+      lossAndExpenseClaimId: string;
+      status: LossAndExpenseClaim["status"];
+      awardedAmount?: number;
+    }) =>
+      apiClient.put<void>(`/sbcc/loss-and-expense/${vars.lossAndExpenseClaimId}/status`, {
+        status: vars.status,
+        awardedAmount: vars.awardedAmount ?? null,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key(projectId, "loss-and-expense") }),
+  });
+}
 
 export const useArchitectsInstructions = (projectId?: string) => useRegister<ArchitectsInstruction>(projectId, "architects-instructions", "architects-instructions");
 export const useCreateArchitectsInstruction = (projectId: string) =>

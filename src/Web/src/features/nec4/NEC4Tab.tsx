@@ -2,14 +2,16 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusActions, type TransitionMap } from "@/components/StatusActions";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import {
   useAcceptedProgrammeEntries, useChangeRegisterItems, useCloseEarlyWarning, useCompensationEvents,
   useContractDataEntries, useCreateAcceptedProgrammeEntry, useCreateChangeRegisterItem,
   useCreateCompensationEvent, useCreateContractDataEntry, useCreateEarlyWarning, useCreatePaymentAssessment,
   useCreateRiskAllocationItem, useEarlyWarnings, usePaymentAssessments, useRiskAllocationItems,
-  useUpdateCompensationEventStatus, useUpdatePaymentAssessmentStatus,
+  useUpdateChangeRegisterItemStatus, useUpdateCompensationEventStatus, useUpdatePaymentAssessmentStatus,
 } from "./api";
+import type { ChangeRegisterItem } from "./types";
 
 const REGISTERS = [
   "Early Warnings", "Compensation Events", "Contract Data", "Risk Allocation", "Accepted Programme", "Payment Assessments", "Change Register",
@@ -226,9 +228,18 @@ function PaymentAssessmentsSection({ projectId }: { projectId: string }) {
   );
 }
 
+// Proposed changes are approved or rejected; an approved one is then implemented. Rejected and
+// Implemented are terminal — a rejected change that needs revisiting is raised again, so that the
+// register keeps the original decision rather than overwriting it.
+const CHANGE_REGISTER_TRANSITIONS: TransitionMap<ChangeRegisterItem["status"]> = {
+  Proposed: ["Approved", "Rejected"],
+  Approved: ["Implemented"],
+};
+
 function ChangeRegisterSection({ projectId }: { projectId: string }) {
   const { data, isLoading } = useChangeRegisterItems(projectId);
   const create = useCreateChangeRegisterItem(projectId);
+  const updateStatus = useUpdateChangeRegisterItemStatus(projectId);
   const [title, setTitle] = useState("");
 
   if (isLoading || !data) return <p className="text-sm text-text-secondary">Loading…</p>;
@@ -240,9 +251,17 @@ function ChangeRegisterSection({ projectId }: { projectId: string }) {
         <Button size="sm" disabled={!title || create.isPending} onClick={() => create.mutate({ title, valueImpact: 0, timeImpactDays: 0 }, { onSuccess: () => setTitle("") })}>Add</Button>
       </div>
       {data.map((c) => (
-        <div key={c.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+        <div key={c.id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2 text-sm">
           <span>{c.title}</span>
-          <Badge variant={statusToBadgeVariant(c.status)}>{c.status}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={statusToBadgeVariant(c.status)}>{c.status}</Badge>
+            <StatusActions
+              status={c.status}
+              transitions={CHANGE_REGISTER_TRANSITIONS}
+              pending={updateStatus.isPending}
+              onSelect={(status) => updateStatus.mutate({ changeRegisterItemId: c.id, status })}
+            />
+          </div>
         </div>
       ))}
     </div>

@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusActions, type TransitionMap } from "@/components/StatusActions";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import {
   useArchitectsInstructions, useCreateArchitectsInstruction, useCreateExtensionOfTime,
   useCreateInterimValuation, useCreateLossAndExpenseClaim, useCreateVariation, useExtensionsOfTime,
-  useInterimValuations, useLossAndExpenseClaims, useUpdateExtensionOfTimeStatus, useUpdateVariationStatus,
-  useVariations,
+  useInterimValuations, useLossAndExpenseClaims, useUpdateExtensionOfTimeStatus,
+  useUpdateLossAndExpenseStatus, useUpdateVariationStatus, useVariations,
 } from "./api";
+import type { ExtensionOfTime, LossAndExpenseClaim } from "./types";
 
 const REGISTERS = ["Variations", "Extensions of Time", "Loss & Expense", "Architect's Instructions", "Interim Valuations"] as const;
 type Register = (typeof REGISTERS)[number];
@@ -94,16 +96,138 @@ function ExtensionsOfTimeSection({ projectId }: { projectId: string }) {
         </Button>
       </div>
       {data.map((e) => (
-        <div key={e.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
-          <span>{e.reference} — {e.reason} ({e.daysClaimed}d claimed{e.daysAwarded != null ? `, ${e.daysAwarded}d awarded` : ""})</span>
-          <div className="flex items-center gap-2">
-            <Badge variant={statusToBadgeVariant(e.status)}>{e.status}</Badge>
-            {e.status === "Claimed" && (
-              <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ extensionOfTimeId: e.id, status: "Awarded", daysAwarded: e.daysClaimed })}>Award in Full</Button>
-            )}
-          </div>
-        </div>
+        <ExtensionOfTimeRow
+          key={e.id}
+          extension={e}
+          pending={updateStatus.isPending}
+          onUpdate={(status, daysAwarded) =>
+            updateStatus.mutate({ extensionOfTimeId: e.id, status, daysAwarded })
+          }
+        />
       ))}
+    </div>
+  );
+}
+
+// Claimed and under-review claims can still be determined; agreed and rejected are terminal.
+// Reopening a determination is not a UI action — it is a contractual event that should leave a
+// record, and quietly flipping the status back would leave none.
+const EOT_TRANSITIONS: TransitionMap<ExtensionOfTime["status"]> = {
+  Claimed: ["UnderReview", "Awarded", "Rejected"],
+  UnderReview: ["Awarded", "Rejected"],
+};
+
+const EOT_LABELS: Partial<Record<ExtensionOfTime["status"], string>> = {
+  UnderReview: "Under review",
+  Awarded: "Award",
+};
+
+function ExtensionOfTimeRow({
+  extension,
+  pending,
+  onUpdate,
+}: {
+  extension: ExtensionOfTime;
+  pending: boolean;
+  onUpdate: (status: ExtensionOfTime["status"], daysAwarded?: number) => void;
+}) {
+  // Pre-filled with the days claimed, which is the common case — awarding in full is one click,
+  // and a partial award is one edit. Leaving it blank would make the frequent case the fiddly one.
+  const [days, setDays] = useState(String(extension.daysAwarded ?? extension.daysClaimed));
+
+  const parsed = Number(days);
+  const daysValid = days !== "" && Number.isFinite(parsed) && parsed >= 0;
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-2 text-sm">
+      <span>
+        {extension.reference} — {extension.reason} ({extension.daysClaimed}d claimed
+        {extension.daysAwarded != null ? `, ${extension.daysAwarded}d awarded` : ""})
+      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={statusToBadgeVariant(extension.status)}>{extension.status}</Badge>
+        {(EOT_TRANSITIONS[extension.status] ?? []).includes("Awarded") && (
+          <label className="flex items-center gap-1 text-xs text-text-secondary">
+            Days
+            <input
+              type="number"
+              min="0"
+              aria-label={`Days awarded for ${extension.reference}`}
+              className="w-20 rounded-md border border-border bg-transparent px-2 py-1 text-sm"
+              value={days}
+              onChange={(event) => setDays(event.target.value)}
+            />
+          </label>
+        )}
+        <StatusActions
+          status={extension.status}
+          transitions={EOT_TRANSITIONS}
+          labels={EOT_LABELS}
+          pending={pending || !daysValid}
+          onSelect={(status) =>
+            // Days are only sent with an award. Attaching them to a rejection would record an
+            // award figure against a claim that was refused.
+            onUpdate(status, status === "Awarded" ? parsed : undefined)
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+const LOSS_AND_EXPENSE_TRANSITIONS: TransitionMap<LossAndExpenseClaim["status"]> = {
+  Claimed: ["UnderReview", "Agreed", "Rejected"],
+  UnderReview: ["Agreed", "Rejected"],
+};
+
+const LOSS_AND_EXPENSE_LABELS: Partial<Record<LossAndExpenseClaim["status"], string>> = {
+  UnderReview: "Under review",
+  Agreed: "Agree",
+};
+
+function LossAndExpenseRow({
+  claim,
+  pending,
+  onUpdate,
+}: {
+  claim: LossAndExpenseClaim;
+  pending: boolean;
+  onUpdate: (status: LossAndExpenseClaim["status"], awardedAmount?: number) => void;
+}) {
+  const [amount, setAmount] = useState(String(claim.awardedAmount ?? claim.claimedAmount));
+
+  const parsed = Number(amount);
+  const amountValid = amount !== "" && Number.isFinite(parsed) && parsed >= 0;
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-2 text-sm">
+      <span>
+        {claim.reference} — {claim.description} ({formatCurrency(claim.claimedAmount)} claimed
+        {claim.awardedAmount != null ? `, ${formatCurrency(claim.awardedAmount)} agreed` : ""})
+      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={statusToBadgeVariant(claim.status)}>{claim.status}</Badge>
+        {(LOSS_AND_EXPENSE_TRANSITIONS[claim.status] ?? []).includes("Agreed") && (
+          <label className="flex items-center gap-1 text-xs text-text-secondary">
+            £
+            <input
+              type="number"
+              min="0"
+              aria-label={`Amount agreed for ${claim.reference}`}
+              className="w-28 rounded-md border border-border bg-transparent px-2 py-1 text-sm"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+          </label>
+        )}
+        <StatusActions
+          status={claim.status}
+          transitions={LOSS_AND_EXPENSE_TRANSITIONS}
+          labels={LOSS_AND_EXPENSE_LABELS}
+          pending={pending || !amountValid}
+          onSelect={(status) => onUpdate(status, status === "Agreed" ? parsed : undefined)}
+        />
+      </div>
     </div>
   );
 }
@@ -111,6 +235,7 @@ function ExtensionsOfTimeSection({ projectId }: { projectId: string }) {
 function LossAndExpenseSection({ projectId }: { projectId: string }) {
   const { data, isLoading } = useLossAndExpenseClaims(projectId);
   const create = useCreateLossAndExpenseClaim(projectId);
+  const updateStatus = useUpdateLossAndExpenseStatus(projectId);
   const [reference, setReference] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -132,10 +257,14 @@ function LossAndExpenseSection({ projectId }: { projectId: string }) {
         </Button>
       </div>
       {data.map((l) => (
-        <div key={l.id} className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
-          <span>{l.reference} — {l.description} ({formatCurrency(l.claimedAmount)} claimed)</span>
-          <Badge variant={statusToBadgeVariant(l.status)}>{l.status}</Badge>
-        </div>
+        <LossAndExpenseRow
+          key={l.id}
+          claim={l}
+          pending={updateStatus.isPending}
+          onUpdate={(status, awardedAmount) =>
+            updateStatus.mutate({ lossAndExpenseClaimId: l.id, status, awardedAmount })
+          }
+        />
       ))}
     </div>
   );

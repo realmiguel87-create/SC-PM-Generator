@@ -38,14 +38,14 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 - [x] Escalation: raises a Risk or Issue for a decision above project-team authority (`Risk.Escalation`, distinct from a `Governance.Gateway`), with create/resolve endpoints — not yet surfaced in a tab UI
 - [ ] Escalation workflow tied into formal Governance approvals (currently a standalone Pending/Resolved/Withdrawn record, not routed through `Governance.Approval`) — deferred
 - [ ] Communications plan, consultation reporting — deferred; only the engagement tracker (a log of what happened) is implemented, not planning/scheduling of future engagement
-- [ ] RiskScore history (probability/impact drift over time) — deferred; `Risk.Score` is a live computed value, not yet snapshotted per change the way `Cost.Forecast` is
+- [~] RiskScore history — **partly overtaken by Phases 15-19.** This entry said `Risk.Score` was not captured per change; that is still literally true, and the drift it was worried about is now queryable regardless: `Risk` is a temporal table, so probability/impact history exists per revision, the snapshot aggregates capture `TotalOpenRiskScore` at each point, and the item comparison reports per-risk score movement between any two snapshots. What is still missing is a dedicated history view or chart for a single risk — smaller than the original entry implied.
 
 ## Phase 4 — NEC4 & SBCC Contract Administration
 
 - [x] NEC4: Early Warning (raise/close), Compensation Event (notify/status), Contract Data (Part One/Two), Risk Allocation Matrix, Accepted Programme (acceptance log), Payment Assessment (assess/certify), Change Register — API + NEC4 tab (in-tab sub-navigation across all seven registers)
 - [x] SBCC: Variation (instruct/status), Extension of Time (claim/award), Loss & Expense (claim), Architect's Instructions (issue), Interim Valuation — API + SBCC tab
 - [ ] Export packs (PDF/DOCX/XLSX per register) — deferred to Phase 6 (Reporting Centre export engine), consistent with the Phase 2 template-generator deferral
-- [ ] Not every register got a full status lifecycle in the UI (e.g. Change Register status update, EOT partial-award, L&E award) — the API endpoints exist (`UpdateChangeRegisterItemStatus`, `UpdateExtensionOfTimeStatus` with a `DaysAwarded` override) but aren't all wired to a button yet; deferred as UI polish, not a data-model gap
+- [x] **Closed in Phase 21.** Change Register status and EOT partial-award are wired up; loss & expense turned out to need a new command and endpoint rather than just a button, which this entry did not distinguish.
 
 ## Phase 5 — Document Management & SharePoint/Blob Integration
 
@@ -272,5 +272,16 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 - [ ] Still no committee-report export containing a comparison. If a committee pack should carry one, the report needs a second snapshot reference to define the period — that is the product decision named above, and it has not been taken.
 - [ ] The PPTX table slides inherit the pagination limitation from Phase 17: a table longer than a slide overflows rather than continuing onto a second. Long columns are truncated with an ellipsis to stop one long description pushing later columns off the slide, which bounds the width problem but not the height one.
 - [ ] As with every other Open XML output here, no file has been opened in Word, PowerPoint or Excel — schema validity is a strong signal, and not the same claim as "it looks right".
+
+## Phase 21 — Reaching the Endpoints That Had No Buttons
+
+- [x] **Change Register status is now reachable.** `UpdateChangeRegisterItemStatusCommand` and its endpoint had existed since Phase 4 with no web hook and no UI at all — the same failure as the snapshot comparison, which sat unreachable from Phase 6 to Phase 17. Proposed → Approved/Rejected, Approved → Implemented.
+- [x] **Extension of time gained partial awards.** The UI offered only "Award in Full" from `Claimed`, while the API had always accepted any status and an arbitrary `DaysAwarded`. It now offers Under review, Award (with an editable day count, pre-filled with the days claimed so awarding in full stays one click) and Reject. Days are sent only with an award — attaching them to a rejection would record an award figure against a refused claim.
+- [x] **Loss & expense needed an API, not a button.** The Phase 4 entry listed "L&E award" alongside the other two as if it were UI polish; in fact no command or endpoint existed. `UpdateLossAndExpenseStatusCommand` and `PUT /api/sbcc/loss-and-expense/{id}/status` were added, mirroring the EOT command deliberately — including the nullable award, so passing null leaves the stored figure untouched rather than clearing it. A claim agreed at £40,000 and later reopened must not silently lose the figure it was agreed at.
+- [x] 5 unit tests covering exactly that nullable-award behaviour, including the case that makes it matter: **an award of zero is a determination and must stay distinguishable from null**, which is the absence of one.
+- [x] A shared `StatusActions` component renders the available transitions per register, with the transition maps declared beside the registers they govern. Three more hand-rolled button clusters would have drifted apart, and the transitions themselves are decisions worth stating: rejected and implemented changes are terminal, because a rejected change that needs revisiting is raised again so the register keeps the original decision rather than overwriting it.
+- [x] Verified: `dotnet build` clean (0 warnings, 0 errors), 67/67 unit tests, 10/10 Playwright tests, `npm run lint`, `tsc` and `npm run build` clean.
+- [ ] **The API does not validate status transitions.** `UpdateExtensionOfTimeStatusCommand` and its siblings set whatever status they are given, so anything constructing a request directly can move an item anywhere — including backwards out of a terminal state. The transition maps added here shape what the UI offers, and shaping is not enforcing. For a governance system that is a real gap; closing it means adding transition rules to five commands with their own tests, which is its own piece of work rather than something to slip in here.
+- [ ] Payment assessment and compensation event status controls were already wired and were left alone, so they do not yet use the shared component. Converting them is cosmetic and was not worth the churn in the same change.
 
 Each phase is designed to be independently shippable and reviewable. Modules from Phase 2 onward follow the same Domain → Application → Infrastructure → Api → Web pattern established in Phase 1.
