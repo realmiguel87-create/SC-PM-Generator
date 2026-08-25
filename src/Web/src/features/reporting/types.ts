@@ -1,6 +1,6 @@
 export type CommitteeReportType = "CommitteeReport" | "CabinetReport" | "BoardReport" | "CapitalProgrammeReport" | "DecisionPaper";
 export type CommitteeReportStatus = "Draft" | "Approved" | "Submitted";
-export type ReportExportFormat = "Pdf" | "Xlsx" | "Csv" | "Json";
+export type ReportExportFormat = "Pdf" | "Xlsx" | "Csv" | "Json" | "Docx" | "Pptx";
 
 export interface CommitteeReportListItem {
   id: string;

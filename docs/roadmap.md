@@ -88,11 +88,10 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
       other. Genuinely verified: 4 unit tests check actual output bytes (`%PDF` header, `PK` zip
       header for XLSX, CSV escaping, JSON round-trip), not just that the code compiles against
       QuestPDF/ClosedXML.
-- [ ] DOCX and PPTX export — deliberately **not** attempted this phase. Six half-verified formats
-      is a worse outcome than four verified ones; OpenXML SDK's WordprocessingDocument/
-      PresentationDocument part hierarchy is fiddly enough (see Phase 5's Microsoft.Graph lesson)
-      that it deserves its own pass with the same reflection-first verification approach, not a
-      rushed addition at the end of an already-large phase.
+- [x] **DOCX and PPTX export — done in Phase 17**, in their own pass with the verification
+      approach this entry asked for. The judgement recorded here held up: the part hierarchy was
+      fiddly, and a schema-ordering mistake was made and caught by a validator rather than by
+      reading. Deferring them was the right call.
 - [x] Snapshot comparison engine: compares the fields `Snapshot` actually captures between any
       two snapshots of the same project. Originally that was project-header figures only (RIBA
       stage, budget, forecast); **Phase 14 extended it to the register aggregates** (risk,
@@ -209,5 +208,19 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 - [ ] The 4 integration tests were **not** run locally — this sandbox has no Docker daemon this session, so no SQL Server to run them against. They are the tests that matter most here, and CI's integration job runs them against a real SQL Server on every push. That is CI's verification, not one done here.
 - [ ] Only risks and milestones are diffed. The NEC4 and SBCC registers are equally temporal and would work the same way, but each needs its own decision about which fields count as a reportable change — the interesting part is that judgement, not the mechanism, and guessing at it for five more registers in one pass would produce five sets of arbitrary rules.
 - [ ] Temporal history has no retention policy configured, so it grows indefinitely. Correct for a governance system's audit position and irrelevant at current volumes, but it is a real operational consideration at ten years' scale and nobody has yet decided what the answer should be.
+
+## Phase 17 — DOCX and PPTX Export
+
+- [x] **`ReportExportFormat` gains `Docx` and `Pptx`**, generated in `OpenXmlReportBuilder` from the same shared `Sections` array as the other four formats — so adding a report section still adds it to every format at once. `GET /api/committee-reports/{id}/export/docx|pptx`, with the correct Office MIME types, and both wired into the Reports tab's export bar.
+- [x] **Verified by validation, not by magic numbers.** Every generated file is re-opened and run through `OpenXmlValidator` (Office 2019 schema) in the tests, asserting zero errors. This matters more than it sounds: Open XML element order is *part of the schema*, so a run that emits `w:sz` before `w:color` still zips, still unzips, and still looks like a document — while being invalid, and liable to be repaired or rejected by Word.
+- [x] **That exact mistake was made while building this**, and was caught by the validator rather than by reading the code. A prototype was built in a scratch project first, validated until clean, and only then ported — which is the "reflection-first verification" the Phase 6 deferral asked for, applied to a format where reading the API surface is not enough on its own.
+- [x] Content is asserted too, not just structure: valid-but-empty is a real failure mode for generated documents and one a schema check alone would pass. The tests check the report's title, headings, multi-line body text, and that unpopulated sections are skipped rather than emitted as empty headings.
+- [x] PPTX carries a slide master, a layout and a theme. These are structural requirements of the format rather than styling choices — a presentation without them will not open even when every slide is blank — and there is a test asserting their presence for exactly that reason. The theme puts Stirling's palette in the accent slots, so restyling the deck in PowerPoint gives the council's colours rather than Office's defaults.
+- [x] A test iterates every value of `ReportExportFormat` and asserts each produces bytes, so a format added to the enum without a matching case in the exporter's switch fails here rather than at the moment someone clicks it.
+- [x] `DocumentFormat.OpenXml` pinned to 3.1.1 — 3.1.0 was tried first and rejected by NuGet as a downgrade, since ClosedXML already requires 3.1.1 transitively.
+- [x] Verified: `dotnet build` clean (0 warnings, 0 errors), 37/37 unit tests (31 + 6 new), 10/10 Playwright tests, `npm run lint` and `npm run build` clean.
+- [ ] **Long sections are not paginated across slides.** A section longer than one slide overflows its text box rather than continuing onto a second. Fixing it properly needs text measurement, which the Open XML SDK does not provide — it writes the file, it does not lay it out — so it would mean either estimating from character counts (wrong at the boundaries, which is where it matters) or introducing a rendering dependency. Neither was worth doing blind.
+- [ ] No tables, images, or appendices in either format. The PDF and XLSX exports are equally prose-only, so this is consistent rather than a regression — but a committee pack that included the report's attached `DocumentFile` appendices would be a genuine improvement, and none of the six formats does that yet.
+- [ ] Neither file has been opened in Word or PowerPoint. Schema validity is a strong signal and considerably more than the other formats get, but it is not the same claim as "it looks right", and no environment in this session has Office in it.
 
 Each phase is designed to be independently shippable and reviewable. Modules from Phase 2 onward follow the same Domain → Application → Infrastructure → Api → Web pattern established in Phase 1.

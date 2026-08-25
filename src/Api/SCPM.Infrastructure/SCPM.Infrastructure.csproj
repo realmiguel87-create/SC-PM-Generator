@@ -24,6 +24,9 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.22.2" />
     <PackageReference Include="QuestPDF" Version="2024.10.3" />
     <PackageReference Include="ClosedXML" Version="0.104.2" />
+    <!-- DOCX/PPTX generation. ClosedXML already depends on this transitively, but the exporter
+         uses the SDK's own types directly, so the dependency is declared rather than inherited. -->
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.1" />
   </ItemGroup>
 
   <ItemGroup>

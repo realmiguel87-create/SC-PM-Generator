@@ -77,6 +77,8 @@ public class CommitteeReportsController : ControllerBase
         [ReportExportFormat.Xlsx] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         [ReportExportFormat.Csv] = "text/csv",
         [ReportExportFormat.Json] = "application/json",
+        [ReportExportFormat.Docx] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        [ReportExportFormat.Pptx] = "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     };
 
     [HttpGet("api/committee-reports/{id:guid}/export/{format}")]

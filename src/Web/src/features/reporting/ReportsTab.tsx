@@ -7,7 +7,9 @@ import { exportReportUrl, useCommitteeReport, useCommitteeReports, useCreateComm
 import { REPORT_SECTIONS, type CommitteeReport, type CommitteeReportType, type ReportExportFormat } from "./types";
 
 const REPORT_TYPES: CommitteeReportType[] = ["CommitteeReport", "CabinetReport", "BoardReport", "CapitalProgrammeReport", "DecisionPaper"];
-const EXPORT_FORMATS: ReportExportFormat[] = ["Pdf", "Xlsx", "Csv", "Json"];
+// Order is deliberate: the two formats a committee officer actually edits and presents come
+// first, then the data formats. Must stay in step with ReportExportFormat on the API.
+const EXPORT_FORMATS: ReportExportFormat[] = ["Pdf", "Docx", "Pptx", "Xlsx", "Csv", "Json"];
 
 function ReportEditor({ projectId, reportId }: { projectId: string; reportId: string }) {
   const { data: report, isLoading } = useCommitteeReport(reportId);
