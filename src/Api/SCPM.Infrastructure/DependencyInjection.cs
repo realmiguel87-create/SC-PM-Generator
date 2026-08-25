@@ -49,6 +49,12 @@ public static class DependencyInjection
         // — can find it and inject the scoped IAppDbContext/ISender it depends on.
         services.AddScoped<SnapshotJobs>();
 
+        // Registers the recurring snapshot jobs, retrying in the background until the job storage
+        // database accepts the write. Deliberately a hosted service rather than an inline call in
+        // Program.cs: registration is a database write, and the database may not be reachable at
+        // the moment the API starts — see RecurringJobRegistrationService for the full reasoning.
+        services.AddHostedService<RecurringJobRegistrationService>();
+
         services.Configure<BlobStorageOptions>(configuration.GetSection("BlobStorage"));
         services.AddScoped<IDocumentStore, AzureBlobDocumentStore>();
         services.AddScoped<IBlobArchiveStore, AzureBlobArchiveStore>();
