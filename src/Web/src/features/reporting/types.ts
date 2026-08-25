@@ -119,6 +119,53 @@ export interface MilestoneChange {
   delayDaysDelta: number | null;
 }
 
+export interface EarlyWarningChange {
+  earlyWarningId: string;
+  title: string;
+  changeType: ItemChangeType;
+  fromStatus: string | null;
+  toStatus: string | null;
+}
+
+export interface CompensationEventChange {
+  compensationEventId: string;
+  reference: string;
+  title: string;
+  changeType: ItemChangeType;
+  fromStatus: string | null;
+  toStatus: string | null;
+  fromEstimatedValue: number | null;
+  toEstimatedValue: number | null;
+  estimatedValueDelta: number | null;
+}
+
+export interface VariationChange {
+  variationId: string;
+  reference: string;
+  description: string;
+  changeType: ItemChangeType;
+  fromStatus: string | null;
+  toStatus: string | null;
+  fromValueImpact: number | null;
+  toValueImpact: number | null;
+  valueImpactDelta: number | null;
+}
+
+export interface ExtensionOfTimeChange {
+  extensionOfTimeId: string;
+  reference: string;
+  reason: string;
+  changeType: ItemChangeType;
+  fromStatus: string | null;
+  toStatus: string | null;
+  fromDaysClaimed: number | null;
+  toDaysClaimed: number | null;
+  /** Null while a claim is undetermined — different from an award of zero days. */
+  fromDaysAwarded: number | null;
+  toDaysAwarded: number | null;
+  daysAwardedDelta: number | null;
+}
+
 /** Which items changed between two snapshots, as opposed to how many. */
 export interface SnapshotItemComparison {
   fromSnapshotId: string;
@@ -129,6 +176,10 @@ export interface SnapshotItemComparison {
   toCapturedAt: string;
   riskChanges: RiskChange[];
   milestoneChanges: MilestoneChange[];
+  earlyWarningChanges: EarlyWarningChange[];
+  compensationEventChanges: CompensationEventChange[];
+  variationChanges: VariationChange[];
+  extensionOfTimeChanges: ExtensionOfTimeChange[];
   hasChanges: boolean;
 }
 

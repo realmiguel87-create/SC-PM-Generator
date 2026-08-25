@@ -7,8 +7,9 @@ using SCPM.Domain.Entities;
 namespace SCPM.Application.Reporting.Queries.CompareSnapshotItems;
 
 /// <summary>
-/// Item-level snapshot comparison: which risks and milestones changed between two snapshots, as
-/// opposed to how many (CompareSnapshotsQuery).
+/// Item-level snapshot comparison: which risks, milestones, early warnings, compensation events,
+/// variations and extensions of time changed between two snapshots, as opposed to how many
+/// (CompareSnapshotsQuery).
 ///
 /// The registers are read out of SQL Server's temporal history at each snapshot's CapturedAt
 /// rather than from anything the snapshot stored. Two consequences worth knowing:
@@ -20,8 +21,11 @@ namespace SCPM.Application.Reporting.Queries.CompareSnapshotItems;
 ///     history was being kept whether or not anyone was going to ask for it.
 ///
 /// The trade is that this reflects the register as it actually was, which is not necessarily what
-/// the snapshot's own aggregates say. They should agree; if they ever disagree, this is the
-/// more trustworthy of the two, because it is reading the source rather than a copy of a count.
+/// the snapshot's own aggregates say. They should agree; if they ever disagree, this is the more
+/// trustworthy of the two, because it is reading the source rather than a copy of a count.
+///
+/// The registers covered here are exactly those the aggregate comparison counts, so the two views
+/// always answer the same question at two levels of detail.
 /// </summary>
 public record CompareSnapshotItemsQuery(Guid FromSnapshotId, Guid ToSnapshotId)
     : IRequest<SnapshotItemComparisonDto>;
@@ -52,11 +56,9 @@ public class CompareSnapshotItemsQueryHandler
         // Ordering is not enforced. Comparing a later snapshot against an earlier one is a
         // legitimate question ("what have we undone since?"), and the deltas stay coherent either
         // way because every one is To minus From. The caller decides which way round to read it.
-        var risksFrom = await _history.RisksAsOfAsync(from.ProjectId, from.CapturedAt, cancellationToken);
-        var risksTo = await _history.RisksAsOfAsync(to.ProjectId, to.CapturedAt, cancellationToken);
-
-        var milestonesFrom = await _history.MilestonesAsOfAsync(from.ProjectId, from.CapturedAt, cancellationToken);
-        var milestonesTo = await _history.MilestonesAsOfAsync(to.ProjectId, to.CapturedAt, cancellationToken);
+        var projectId = from.ProjectId;
+        var at = from.CapturedAt;
+        var then = to.CapturedAt;
 
         return new SnapshotItemComparisonDto
         {
@@ -66,34 +68,84 @@ public class CompareSnapshotItemsQueryHandler
             ToSnapshotId = to.Id,
             ToLabel = to.Label,
             ToCapturedAt = to.CapturedAt,
-            RiskChanges = DiffRisks(risksFrom, risksTo),
-            MilestoneChanges = DiffMilestones(milestonesFrom, milestonesTo),
+
+            RiskChanges = DiffRisks(
+                await _history.RisksAsOfAsync(projectId, at, cancellationToken),
+                await _history.RisksAsOfAsync(projectId, then, cancellationToken)),
+
+            MilestoneChanges = DiffMilestones(
+                await _history.MilestonesAsOfAsync(projectId, at, cancellationToken),
+                await _history.MilestonesAsOfAsync(projectId, then, cancellationToken)),
+
+            EarlyWarningChanges = DiffEarlyWarnings(
+                await _history.EarlyWarningsAsOfAsync(projectId, at, cancellationToken),
+                await _history.EarlyWarningsAsOfAsync(projectId, then, cancellationToken)),
+
+            CompensationEventChanges = DiffCompensationEvents(
+                await _history.CompensationEventsAsOfAsync(projectId, at, cancellationToken),
+                await _history.CompensationEventsAsOfAsync(projectId, then, cancellationToken)),
+
+            VariationChanges = DiffVariations(
+                await _history.VariationsAsOfAsync(projectId, at, cancellationToken),
+                await _history.VariationsAsOfAsync(projectId, then, cancellationToken)),
+
+            ExtensionOfTimeChanges = DiffExtensionsOfTime(
+                await _history.ExtensionsOfTimeAsOfAsync(projectId, at, cancellationToken),
+                await _history.ExtensionsOfTimeAsOfAsync(projectId, then, cancellationToken)),
         };
     }
 
-    private static List<RiskChangeDto> DiffRisks(
-        IReadOnlyList<Risk> from, IReadOnlyList<Risk> to)
+    /// <summary>
+    /// The shape every register diff has in common: match by id, classify as added/removed/
+    /// modified, and drop anything present at both points that did not move.
+    ///
+    /// What differs per register is only <paramref name="hasMoved"/> — which fields count as a
+    /// reportable change — and that is the part that needs judgement rather than mechanism. Six
+    /// hand-written copies of this loop would have buried those six decisions in boilerplate,
+    /// which is exactly how one of them ends up subtly different from the others by accident.
+    /// </summary>
+    private static List<TChange> Diff<TEntity, TChange>(
+        IReadOnlyList<TEntity> from,
+        IReadOnlyList<TEntity> to,
+        Func<TEntity, Guid> identify,
+        Func<TEntity, TEntity, bool> hasMoved,
+        Func<Guid, TEntity?, TEntity?, TChange> build)
+        where TEntity : class
     {
-        var fromById = from.ToDictionary(r => r.Id);
-        var toById = to.ToDictionary(r => r.Id);
-        var changes = new List<RiskChangeDto>();
+        var fromById = from.ToDictionary(identify);
+        var toById = to.ToDictionary(identify);
+        var changes = new List<TChange>();
 
         foreach (var id in fromById.Keys.Union(toById.Keys))
         {
             fromById.TryGetValue(id, out var before);
             toById.TryGetValue(id, out var after);
 
-            // Same field set the comparison reports on. A title-only edit is deliberately not a
-            // change worth reporting: renaming a risk is housekeeping, and listing it alongside
-            // real movements dilutes the ones that matter.
-            var moved = before is not null && after is not null &&
-                (before.Status != after.Status ||
-                 before.Probability != after.Probability ||
-                 before.Impact != after.Impact);
+            if (before is not null && after is not null && !hasMoved(before, after)) continue;
 
-            if (before is not null && after is not null && !moved) continue;
+            changes.Add(build(id, before, after));
+        }
 
-            changes.Add(new RiskChangeDto
+        return changes;
+    }
+
+    private static ItemChangeType ChangeTypeFor(object? before, object? after) => before switch
+    {
+        null => ItemChangeType.Added,
+        _ when after is null => ItemChangeType.Removed,
+        _ => ItemChangeType.Modified,
+    };
+
+    // --- Risk: score movement and status. A title-only edit is housekeeping, not a movement. ---
+
+    private static List<RiskChangeDto> DiffRisks(IReadOnlyList<Risk> from, IReadOnlyList<Risk> to) =>
+        Diff(from, to,
+            r => r.Id,
+            (before, after) =>
+                before.Status != after.Status ||
+                before.Probability != after.Probability ||
+                before.Impact != after.Impact,
+            (id, before, after) => new RiskChangeDto
             {
                 RiskId = id,
                 Title = after?.Title ?? before!.Title,
@@ -106,41 +158,27 @@ public class CompareSnapshotItemsQueryHandler
                 ToImpact = after?.Impact,
                 FromScore = before?.Score,
                 ToScore = after?.Score,
-            });
-        }
-
+            })
         // Biggest movement first, then additions and removals (which have no delta), then by
         // title so the order is stable between two runs over identical data.
-        return changes
-            .OrderByDescending(c => Math.Abs(c.ScoreDelta ?? 0))
-            .ThenByDescending(c => c.ToScore ?? c.FromScore ?? 0)
-            .ThenBy(c => c.Title)
-            .ToList();
-    }
+        .OrderByDescending(c => Math.Abs(c.ScoreDelta ?? 0))
+        .ThenByDescending(c => c.ToScore ?? c.FromScore ?? 0)
+        .ThenBy(c => c.Title)
+        .ToList();
+
+    // --- Milestone: dates and status. Baseline changes are re-baselining, a governance event in
+    // its own right — folding it in would report a slip the dates no longer show, or hide one
+    // that they do. ---
 
     private static List<MilestoneChangeDto> DiffMilestones(
-        IReadOnlyList<Milestone> from, IReadOnlyList<Milestone> to)
-    {
-        var fromById = from.ToDictionary(m => m.Id);
-        var toById = to.ToDictionary(m => m.Id);
-        var changes = new List<MilestoneChangeDto>();
-
-        foreach (var id in fromById.Keys.Union(toById.Keys))
-        {
-            fromById.TryGetValue(id, out var before);
-            toById.TryGetValue(id, out var after);
-
-            // Baseline changes are not tracked here on purpose: re-baselining is a governance
-            // event in its own right, and folding it into "this milestone slipped" would report a
-            // slip that the dates no longer show — or hide one that they do.
-            var moved = before is not null && after is not null &&
-                (before.Status != after.Status ||
-                 before.ForecastDate != after.ForecastDate ||
-                 before.ActualDate != after.ActualDate);
-
-            if (before is not null && after is not null && !moved) continue;
-
-            changes.Add(new MilestoneChangeDto
+        IReadOnlyList<Milestone> from, IReadOnlyList<Milestone> to) =>
+        Diff(from, to,
+            m => m.Id,
+            (before, after) =>
+                before.Status != after.Status ||
+                before.ForecastDate != after.ForecastDate ||
+                before.ActualDate != after.ActualDate,
+            (id, before, after) => new MilestoneChangeDto
             {
                 MilestoneId = id,
                 Name = after?.Name ?? before!.Name,
@@ -153,20 +191,113 @@ public class CompareSnapshotItemsQueryHandler
                 ToActualDate = after?.ActualDate,
                 FromDelayDays = before is null ? null : SnapshotMetrics.DelayDays(before),
                 ToDelayDays = after is null ? null : SnapshotMetrics.DelayDays(after),
-            });
-        }
+            })
+        .OrderByDescending(c => Math.Abs(c.DelayDaysDelta ?? 0))
+        .ThenByDescending(c => c.ToDelayDays ?? c.FromDelayDays ?? 0)
+        .ThenBy(c => c.Name)
+        .ToList();
 
-        return changes
-            .OrderByDescending(c => Math.Abs(c.DelayDaysDelta ?? 0))
-            .ThenByDescending(c => c.ToDelayDays ?? c.FromDelayDays ?? 0)
-            .ThenBy(c => c.Name)
-            .ToList();
-    }
+    // --- Early warning: open or closed, and nothing else. Mitigation-action text changes as the
+    // team works the problem, and reporting every wording change would drown the two transitions
+    // that matter. ---
 
-    private static ItemChangeType ChangeTypeFor(object? before, object? after) => before switch
-    {
-        null => ItemChangeType.Added,
-        _ when after is null => ItemChangeType.Removed,
-        _ => ItemChangeType.Modified,
-    };
+    private static List<EarlyWarningChangeDto> DiffEarlyWarnings(
+        IReadOnlyList<EarlyWarning> from, IReadOnlyList<EarlyWarning> to) =>
+        Diff(from, to,
+            e => e.Id,
+            (before, after) => before.Status != after.Status,
+            (id, before, after) => new EarlyWarningChangeDto
+            {
+                EarlyWarningId = id,
+                Title = after?.Title ?? before!.Title,
+                ChangeType = ChangeTypeFor(before, after),
+                FromStatus = before?.Status.ToString(),
+                ToStatus = after?.Status.ToString(),
+            })
+        .OrderBy(c => c.ChangeType)
+        .ThenBy(c => c.Title)
+        .ToList();
+
+    // --- Compensation event: both dimensions a CE moves in — where it is in the NEC4 process,
+    // and what it is expected to cost. Either alone tells half the story: a CE can be accepted
+    // without its value changing, or re-estimated without moving status. ---
+
+    private static List<CompensationEventChangeDto> DiffCompensationEvents(
+        IReadOnlyList<CompensationEvent> from, IReadOnlyList<CompensationEvent> to) =>
+        Diff(from, to,
+            c => c.Id,
+            (before, after) =>
+                before.Status != after.Status ||
+                before.EstimatedValue != after.EstimatedValue,
+            (id, before, after) => new CompensationEventChangeDto
+            {
+                CompensationEventId = id,
+                Reference = after?.Reference ?? before!.Reference,
+                Title = after?.Title ?? before!.Title,
+                ChangeType = ChangeTypeFor(before, after),
+                FromStatus = before?.Status.ToString(),
+                ToStatus = after?.Status.ToString(),
+                FromEstimatedValue = before?.EstimatedValue,
+                ToEstimatedValue = after?.EstimatedValue,
+            })
+        .OrderByDescending(c => Math.Abs(c.EstimatedValueDelta ?? 0))
+        .ThenByDescending(c => c.ToEstimatedValue ?? c.FromEstimatedValue ?? 0)
+        .ThenBy(c => c.Reference)
+        .ToList();
+
+    // --- Variation: status and value impact, for the same reason as compensation events. ---
+
+    private static List<VariationChangeDto> DiffVariations(
+        IReadOnlyList<Variation> from, IReadOnlyList<Variation> to) =>
+        Diff(from, to,
+            v => v.Id,
+            (before, after) =>
+                before.Status != after.Status ||
+                before.ValueImpact != after.ValueImpact,
+            (id, before, after) => new VariationChangeDto
+            {
+                VariationId = id,
+                Reference = after?.Reference ?? before!.Reference,
+                Description = after?.Description ?? before!.Description,
+                ChangeType = ChangeTypeFor(before, after),
+                FromStatus = before?.Status.ToString(),
+                ToStatus = after?.Status.ToString(),
+                FromValueImpact = before?.ValueImpact,
+                ToValueImpact = after?.ValueImpact,
+            })
+        .OrderByDescending(c => Math.Abs(c.ValueImpactDelta ?? 0))
+        .ThenByDescending(c => c.ToValueImpact ?? c.FromValueImpact ?? 0)
+        .ThenBy(c => c.Reference)
+        .ToList();
+
+    // --- Extension of time: claimed and awarded days tracked separately, deliberately. A claim
+    // rising is the contractor's position; an award rising is the programme actually moving.
+    // Reporting them as one number would conflate an argument with a fact. ---
+
+    private static List<ExtensionOfTimeChangeDto> DiffExtensionsOfTime(
+        IReadOnlyList<ExtensionOfTime> from, IReadOnlyList<ExtensionOfTime> to) =>
+        Diff(from, to,
+            x => x.Id,
+            (before, after) =>
+                before.Status != after.Status ||
+                before.DaysClaimed != after.DaysClaimed ||
+                before.DaysAwarded != after.DaysAwarded,
+            (id, before, after) => new ExtensionOfTimeChangeDto
+            {
+                ExtensionOfTimeId = id,
+                Reference = after?.Reference ?? before!.Reference,
+                Reason = after?.Reason ?? before!.Reason,
+                ChangeType = ChangeTypeFor(before, after),
+                FromStatus = before?.Status.ToString(),
+                ToStatus = after?.Status.ToString(),
+                FromDaysClaimed = before?.DaysClaimed,
+                ToDaysClaimed = after?.DaysClaimed,
+                FromDaysAwarded = before?.DaysAwarded,
+                ToDaysAwarded = after?.DaysAwarded,
+            })
+        // Awarded days first — an award is a programme fact, a claim is not yet one.
+        .OrderByDescending(c => Math.Abs(c.DaysAwardedDelta ?? 0))
+        .ThenByDescending(c => c.ToDaysAwarded ?? 0)
+        .ThenBy(c => c.Reference)
+        .ToList();
 }
