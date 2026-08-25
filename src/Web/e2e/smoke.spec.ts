@@ -49,6 +49,37 @@ test.describe("App shell smoke test", () => {
       `Unexpected console errors: ${unexpectedConsoleErrors.join("; ")}`,
     ).toHaveLength(0);
   });
+
+  // Client-side validation needs no backend, so unlike the submit path it is genuinely testable
+  // here. Worth covering: these rules mirror CreateProjectCommandValidator on the server, and a
+  // silent drift between the two turns a helpful inline message into an opaque 400.
+  test("the new project form validates required fields before submitting", async ({ page }) => {
+    await page.goto("/projects");
+
+    await page.getByRole("button", { name: "New project" }).click();
+    await expect(page.getByRole("heading", { name: "New project" })).toBeVisible();
+
+    // Submitting empty should surface required-field errors, not a network call.
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByText("Project reference is required.")).toBeVisible();
+    await expect(page.getByText("Project name is required.")).toBeVisible();
+
+    // Over-length project reference: the server caps this at 20 characters.
+    await page.getByLabel("Project reference").fill("X".repeat(21));
+    await page.getByLabel("Project name").fill("Test project");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByText("Must be 20 characters or fewer.")).toBeVisible();
+
+    // Completion date before start date — the one cross-field rule the server enforces.
+    await page.getByLabel("Project reference").fill("CP-2026-001");
+    await page.getByLabel("Start date").fill("2026-06-01");
+    await page.getByLabel("Target completion").fill("2026-01-01");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByText("Must be on or after the start date.")).toBeVisible();
+
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("heading", { name: "New project" })).not.toBeVisible();
+  });
 });
 
 async function navigateTo(page: Page, label: string) {
