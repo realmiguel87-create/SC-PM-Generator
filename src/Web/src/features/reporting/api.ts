@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import type { CommitteeReport, CommitteeReportListItem, CommitteeReportType, SnapshotComparison } from "./types";
+import type {
+  CommitteeReport,
+  CommitteeReportListItem,
+  CommitteeReportType,
+  SnapshotComparison,
+  SnapshotItemComparison,
+} from "./types";
 
 const listKey = (projectId?: string) => ["committee-reports", projectId ?? "all"] as const;
 const detailKey = (reportId: string) => ["committee-reports", "detail", reportId] as const;
@@ -57,6 +63,25 @@ export function useCompareSnapshots(fromSnapshotId: string | undefined, toSnapsh
   return useQuery({
     queryKey: ["snapshots", "compare", fromSnapshotId, toSnapshotId],
     queryFn: () => apiClient.get<SnapshotComparison>(`/snapshots/compare?fromSnapshotId=${fromSnapshotId}&toSnapshotId=${toSnapshotId}`),
+    enabled: !!fromSnapshotId && !!toSnapshotId && fromSnapshotId !== toSnapshotId,
+  });
+}
+
+/**
+ * The item-level counterpart of useCompareSnapshots. A separate query rather than a flag on the
+ * other one, because the API reads temporal history for this and it is materially more expensive
+ * — a caller should ask for it deliberately.
+ */
+export function useCompareSnapshotItems(
+  fromSnapshotId: string | undefined,
+  toSnapshotId: string | undefined,
+) {
+  return useQuery({
+    queryKey: ["snapshots", "compare", "items", fromSnapshotId, toSnapshotId],
+    queryFn: () =>
+      apiClient.get<SnapshotItemComparison>(
+        `/snapshots/compare/items?fromSnapshotId=${fromSnapshotId}&toSnapshotId=${toSnapshotId}`,
+      ),
     enabled: !!fromSnapshotId && !!toSnapshotId && fromSnapshotId !== toSnapshotId,
   });
 }

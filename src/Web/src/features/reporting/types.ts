@@ -43,6 +43,93 @@ export interface SnapshotComparison {
   fromForecastCost: number;
   toForecastCost: number;
   forecastDelta: number;
+
+  // Register aggregates (see the API's SnapshotComparisonDto). Every delta is To minus From
+  // without exception, including where "up" is bad — so a positive number always means the
+  // figure increased, never "improved". Presentation decides how to colour that.
+  fromOpenRiskCount: number;
+  toOpenRiskCount: number;
+  openRiskCountDelta: number;
+  fromHighRiskCount: number;
+  toHighRiskCount: number;
+  highRiskCountDelta: number;
+  fromTotalOpenRiskScore: number;
+  toTotalOpenRiskScore: number;
+  totalOpenRiskScoreDelta: number;
+
+  fromOpenIssueCount: number;
+  toOpenIssueCount: number;
+  openIssueCountDelta: number;
+  fromSevereOpenIssueCount: number;
+  toSevereOpenIssueCount: number;
+  severeOpenIssueCountDelta: number;
+
+  fromMilestonesDelayedCount: number;
+  toMilestonesDelayedCount: number;
+  milestonesDelayedCountDelta: number;
+  fromWorstMilestoneDelayDays: number;
+  toWorstMilestoneDelayDays: number;
+  worstMilestoneDelayDaysDelta: number;
+
+  fromOpenCompensationEventCount: number;
+  toOpenCompensationEventCount: number;
+  openCompensationEventCountDelta: number;
+  fromCompensationEventValue: number;
+  toCompensationEventValue: number;
+  compensationEventValueDelta: number;
+
+  fromOpenVariationCount: number;
+  toOpenVariationCount: number;
+  openVariationCountDelta: number;
+  fromVariationValue: number;
+  toVariationValue: number;
+  variationValueDelta: number;
+}
+
+export type ItemChangeType = "Added" | "Removed" | "Modified";
+
+export interface RiskChange {
+  riskId: string;
+  title: string;
+  changeType: ItemChangeType;
+  fromStatus: string | null;
+  toStatus: string | null;
+  fromProbability: number | null;
+  toProbability: number | null;
+  fromImpact: number | null;
+  toImpact: number | null;
+  fromScore: number | null;
+  toScore: number | null;
+  /** Null when the risk did not exist at both points — "appeared at 15" is not "rose by 15". */
+  scoreDelta: number | null;
+}
+
+export interface MilestoneChange {
+  milestoneId: string;
+  name: string;
+  changeType: ItemChangeType;
+  fromStatus: string | null;
+  toStatus: string | null;
+  fromForecastDate: string | null;
+  toForecastDate: string | null;
+  fromActualDate: string | null;
+  toActualDate: string | null;
+  fromDelayDays: number | null;
+  toDelayDays: number | null;
+  delayDaysDelta: number | null;
+}
+
+/** Which items changed between two snapshots, as opposed to how many. */
+export interface SnapshotItemComparison {
+  fromSnapshotId: string;
+  fromLabel: string;
+  fromCapturedAt: string;
+  toSnapshotId: string;
+  toLabel: string;
+  toCapturedAt: string;
+  riskChanges: RiskChange[];
+  milestoneChanges: MilestoneChange[];
+  hasChanges: boolean;
 }
 
 export const REPORT_SECTIONS: { key: keyof CommitteeReport; label: string }[] = [

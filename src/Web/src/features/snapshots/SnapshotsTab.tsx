@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
+import { SnapshotComparison } from "./SnapshotComparison";
 import { useCreateManualSnapshot, useSnapshots } from "./api";
 
 export function SnapshotsTab({ projectId }: { projectId: string }) {
@@ -36,6 +37,8 @@ export function SnapshotsTab({ projectId }: { projectId: string }) {
           </Button>
         </CardContent>
       </Card>
+
+      <SnapshotComparison snapshots={snapshots} />
 
       <Card>
         <CardHeader><CardTitle>Snapshot History</CardTitle></CardHeader>
