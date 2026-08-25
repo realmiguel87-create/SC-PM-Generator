@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ApiErrorNotice } from "@/components/ApiErrorNotice";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { useCommitteeReports } from "@/features/reporting/api";
 import { formatDate } from "@/lib/utils";
 
 export function ReportingCentrePage() {
-  const { data: reports, isLoading, isError } = useCommitteeReports();
+  const { data: reports, isLoading, isError, error } = useCommitteeReports();
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -15,9 +16,7 @@ export function ReportingCentrePage() {
       </header>
 
       {isLoading && <p className="text-sm text-text-secondary">Loading reports…</p>}
-      {isError && (
-        <Card><CardContent className="pt-5 text-sm text-critical">Could not reach the API.</CardContent></Card>
-      )}
+      {isError && <ApiErrorNotice error={error} />}
 
       {reports && reports.length === 0 && (
         <Card><CardContent className="pt-5 text-sm text-text-secondary">

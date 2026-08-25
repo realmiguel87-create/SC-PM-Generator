@@ -2,12 +2,13 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Banknote, ClipboardCheck, FolderKanban, LayoutGrid, ShieldAlert } from "lucide-react";
 import { StatTile } from "@/components/StatTile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ApiErrorNotice } from "@/components/ApiErrorNotice";
 import { RIBA_STAGES } from "@/lib/riba";
 import { useProjects } from "@/features/projects/api";
 import { formatCurrency } from "@/lib/utils";
 
 export function DashboardPage() {
-  const { data: projects, isLoading, isError } = useProjects();
+  const { data: projects, isLoading, isError, error } = useProjects();
 
   const totalCapitalValue = projects?.reduce((sum, p) => sum + p.approvedBudget, 0) ?? 0;
   const totalForecastCost = projects?.reduce((sum, p) => sum + p.forecastCost, 0) ?? 0;
@@ -24,13 +25,7 @@ export function DashboardPage() {
         <p className="text-sm text-text-secondary">Portfolio-wide view of the capital programme.</p>
       </header>
 
-      {isError && (
-        <Card className="border-critical/40">
-          <CardContent className="pt-5 text-sm text-critical">
-            Could not reach the API. Showing an empty portfolio — start the SCPM.Api project to see live data.
-          </CardContent>
-        </Card>
-      )}
+      {isError && <ApiErrorNotice error={error} />}
 
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatTile label="Total Projects" value={isLoading ? "…" : String(projects?.length ?? 0)} icon={<FolderKanban size={18} />} accent="purple" />

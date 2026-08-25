@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { ApiErrorNotice } from "@/components/ApiErrorNotice";
 import { useProjects } from "@/features/projects/api";
 import { formatCurrency } from "@/lib/utils";
 
 export function ProjectsListPage() {
-  const { data: projects, isLoading, isError } = useProjects();
+  const { data: projects, isLoading, isError, error } = useProjects();
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -15,13 +16,7 @@ export function ProjectsListPage() {
       </header>
 
       {isLoading && <p className="text-sm text-text-secondary">Loading projects…</p>}
-      {isError && (
-        <Card>
-          <CardContent className="pt-5 text-sm text-critical">
-            Could not reach the API. Start the SCPM.Api project to see live data.
-          </CardContent>
-        </Card>
-      )}
+      {isError && <ApiErrorNotice error={error} />}
 
       {projects && projects.length === 0 && (
         <Card>
