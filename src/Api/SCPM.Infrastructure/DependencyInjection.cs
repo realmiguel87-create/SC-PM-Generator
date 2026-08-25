@@ -29,6 +29,10 @@ public static class DependencyInjection
 
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 
+        // Register history reads SQL Server temporal tables, which is why it is an interface the
+        // Application layer depends on rather than a query written there — see IRegisterHistory.
+        services.AddScoped<IRegisterHistory, SqlServerRegisterHistory>();
+
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IClaimsTransformation, EntraClaimsTransformation>();

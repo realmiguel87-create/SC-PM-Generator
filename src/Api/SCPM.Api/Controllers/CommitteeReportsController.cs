@@ -6,6 +6,7 @@ using SCPM.Application.Reporting.Commands.CreateCommitteeReport;
 using SCPM.Application.Reporting.Commands.SubmitCommitteeReport;
 using SCPM.Application.Reporting.Commands.UpdateCommitteeReport;
 using SCPM.Application.Reporting.Dtos;
+using SCPM.Application.Reporting.Queries.CompareSnapshotItems;
 using SCPM.Application.Reporting.Queries.CompareSnapshots;
 using SCPM.Application.Reporting.Queries.GetCommitteeReport;
 using SCPM.Application.Reporting.Queries.GetCommitteeReports;
@@ -94,4 +95,15 @@ public class CommitteeReportsController : ControllerBase
     public async Task<ActionResult<SnapshotComparisonDto>> CompareSnapshots(
         [FromQuery] Guid fromSnapshotId, [FromQuery] Guid toSnapshotId, CancellationToken ct)
         => Ok(await _mediator.Send(new CompareSnapshotsQuery(fromSnapshotId, toSnapshotId), ct));
+
+    /// <summary>
+    /// The item-level counterpart of the comparison above: which risks and milestones changed,
+    /// rather than by how much the counts did. Separate endpoint rather than a flag on the other
+    /// one, because it reads the temporal history instead of the snapshot rows and is therefore a
+    /// materially more expensive query — a caller should opt into that cost knowingly.
+    /// </summary>
+    [HttpGet("api/snapshots/compare/items")]
+    public async Task<ActionResult<SnapshotItemComparisonDto>> CompareSnapshotItems(
+        [FromQuery] Guid fromSnapshotId, [FromQuery] Guid toSnapshotId, CancellationToken ct)
+        => Ok(await _mediator.Send(new CompareSnapshotItemsQuery(fromSnapshotId, toSnapshotId), ct));
 }
