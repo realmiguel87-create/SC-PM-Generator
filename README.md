@@ -47,6 +47,44 @@ infrastructure/
 
 ## Getting Started
 
+### Local configuration
+
+The connection strings in `appsettings.json` are non-working placeholders on purpose — a real
+Azure SQL connection string and a storage account key are both secrets and must not live in the
+repository. Supply them per-developer with user secrets, which override `appsettings.json`
+and are stored outside the project tree:
+
+```bash
+cd src/Api/SCPM.Api
+dotnet user-secrets set "ConnectionStrings:SqlServer" "<azure sql connection string>"
+dotnet user-secrets set "BlobStorage:ConnectionString" "<storage account connection string>"
+dotnet user-secrets list
+```
+
+User secrets are only loaded when the environment is `Development` — which
+`Properties/launchSettings.json` sets, along with pinning the ports below. Running the API
+some other way (`dotnet SCPM.Api.dll`, a container, a published build) bypasses launch
+profiles entirely and needs `ASPNETCORE_ENVIRONMENT` and configuration supplied by other means.
+
+Trust the ASP.NET Core development certificate once per machine, or HTTPS on 5001 will fail
+and the SPA's proxy will have nothing to talk to:
+
+```bash
+dotnet dev-certs https --trust
+```
+
+| Component | URL |
+| --- | --- |
+| API (HTTPS) | `https://localhost:5001` — the SPA's Vite proxy target |
+| API (HTTP) | `http://localhost:5000` |
+| Swagger | `https://localhost:5001/swagger` (Development only) |
+| Web | `http://localhost:5173` |
+
+Port 5173 is not arbitrary: it is registered as the SPA redirect URI on the Entra ID app
+registration and listed in `Cors:AllowedOrigins`. Vite silently moves to 5174 if 5173 is
+already in use, which produces an `AADSTS50011` redirect-URI mismatch at sign-in — check the
+port Vite actually reports rather than assuming.
+
 ### API
 ```bash
 cd src/Api
