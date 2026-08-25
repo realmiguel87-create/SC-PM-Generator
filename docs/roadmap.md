@@ -93,11 +93,11 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
       PresentationDocument part hierarchy is fiddly enough (see Phase 5's Microsoft.Graph lesson)
       that it deserves its own pass with the same reflection-first verification approach, not a
       rushed addition at the end of an already-large phase.
-- [x] Snapshot comparison engine: compares the fields `Snapshot` actually captures (RIBA stage,
-      budget, forecast) between any two snapshots of the same project. Comparing risk/programme/
-      NEC4/SBCC registers between snapshots isn't possible yet — `Snapshot` doesn't capture those
-      registers, only project-header figures (see docs/roadmap.md Phase 2) — extending what a
-      snapshot captures is the natural next step, not a bug in this query.
+- [x] Snapshot comparison engine: compares the fields `Snapshot` actually captures between any
+      two snapshots of the same project. Originally that was project-header figures only (RIBA
+      stage, budget, forecast); **Phase 14 extended it to the register aggregates** (risk,
+      issues, programme, NEC4, SBCC), which is what makes it useful for committee reporting
+      rather than only for cost movement.
 
 ## Phase 7 — Power BI, Security Hardening, Testing, DevOps Maturity
 
@@ -167,5 +167,20 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 - [x] Depends on `IRecurringJobManager` rather than Hangfire's static `RecurringJob` facade, which is what makes it testable — the old inline code could not be covered at all. 3 unit tests (`RecurringJobRegistrationServiceTests`): all three jobs register when storage is reachable (asserting on job *ids*, so a copy-paste slip registering the same id three times fails rather than passing on call count); registration succeeds on retry after an initial failure, exercising a real 5-second backoff rather than mocked time; and `StopAsync` returns promptly mid-backoff instead of hanging shutdown until the host's timeout.
 - [x] Verified: `dotnet build` clean (0 warnings, 0 errors), 14/14 unit tests pass (11 existing + 3 new).
 - [ ] Not covered: the retry path against a genuinely unreachable *SQL Server*, as opposed to a substituted `IRecurringJobManager` that throws. The integration suite has a reachable database by construction, and taking it away mid-run would be testing Hangfire's own connection handling more than this class's behaviour.
+
+## Phase 14 — Snapshots Capture the Register Position
+
+- [x] **`Snapshot` now captures register aggregates, not just project-header figures.** Fifteen new columns covering risk (open count, high-scoring count, total open score), issues (open, severe), programme (total, complete, delayed, worst single slip in days), NEC4 (open early warnings, open compensation events, CE value carried) and SBCC (open variations, variation value, EOT days awarded). Migration `CaptureRegisterAggregatesInSnapshot`, additive with `defaultValue: 0`.
+- [x] `CompareSnapshotsQuery` and `SnapshotComparisonDto` extended to match, with a delta for every metric. Every delta is To minus From without exception, **including the ones where "up" is bad** (risk, delay, compensation events) — so a positive number always means the figure increased and never "improved", and a reader never has to remember which way round a particular field was defined. Interpretation belongs to whatever presents it.
+- [x] **Aggregates, not per-item capture — a deliberate boundary.** Copying every risk, milestone and compensation event into every snapshot of every active project, daily, would grow without limit for a level of detail nothing currently asks for, and the per-row history already exists in the temporal tables. Aggregates answer "what moved, and by how much" between two dates, which is the question the comparison engine exists to answer.
+- [x] **Every definition lives once, in `SnapshotMetrics`**, as EF-translatable `Expression`s. The failure mode this prevents is "open risk" meaning one thing at capture time and something subtly different in a dashboard tile, a committee report or a Power BI dataset — at which point the numbers disagree and nobody can say which is right, because each definition is buried in a different query.
+- [x] Two definitions are deliberately *not* the same and it matters: `IsOpenCompensationEvent` excludes Implemented (it is concluded), while `CarriesCompensationEventValue` includes it (it has been paid for and still counts against the budget). Only a Rejected CE is free. Similarly, milestone delay is judged on dates rather than on `MilestoneStatus`, so a milestone that has slipped but whose status nobody updated is still counted.
+- [x] Counts and totals are computed by the database, since the scheduled job snapshots every active project on every run. Milestones are the one deliberate exception: the delay calculation uses `DateOnly.DayNumber`, which EF Core cannot translate, and re-expressing it as a SQL date difference would create the second definition `SnapshotMetrics` exists to prevent. A project's milestone count is small and bounded; the other registers are not, and are not materialised.
+- [x] 8 unit tests (`SnapshotRegisterCaptureTests`) against a real `DbContext` (InMemory provider), targeting the definitions rather than the plumbing — the decisions most likely to break silently, since each one still produces a plausible-looking number when wrong. Covers: empty registers producing zeroes rather than nulls or a crash (`Max` over no milestones being the specific trap); Escalated counting as open while Mitigated/Closed do not; the high-risk threshold being inclusive at 15; soft-deleted rows dropping out via the global query filter without the handler mentioning `IsDeleted`; a slipped milestone counting as delayed regardless of status, with actual date beating forecast; worst-delay clamped to 0 when everything is ahead of baseline; open-CE count differing from CE value carried; undetermined EOT claims contributing 0 days; and other projects' registers being ignored.
+- [x] Snapshots tab surfaces the new figures (risk, issues, programme, CE value) in its own horizontal scroll container rather than squeezing them into the page width.
+- [x] Verified: `dotnet build` clean (0 warnings, 0 errors), 22/22 unit tests, `npm run lint` and `npm run build` clean.
+- [ ] The migration has **not** been applied to a real SQL Server locally — this sandbox has no Docker daemon this session. It is additive (`AddColumn` with `defaultValue: 0`, no data movement), and CI's `migrate` job applies it to a real SQL Server on every push, but that is CI's verification rather than one done here.
+- [ ] Snapshots captured before this change read 0 for every new metric. They are not back-filled and cannot honestly be: the API cannot know what a register looked like on a date it never recorded. Comparisons spanning that boundary will show large apparent movements that are artefacts of the schema change, not of the project.
+- [ ] Item-level diffs — *which* risk moved, *which* milestone slipped — remain out of scope. That needs per-item capture or a temporal-table query, and is a separate piece of work.
 
 Each phase is designed to be independently shippable and reviewable. Modules from Phase 2 onward follow the same Domain → Application → Infrastructure → Api → Web pattern established in Phase 1.

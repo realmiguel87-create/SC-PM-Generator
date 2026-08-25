@@ -9,6 +9,28 @@ export interface Snapshot {
   ribaStageAtCapture: number;
   approvedBudgetAtCapture: number;
   forecastCostAtCapture: number;
+
+  // Register aggregates. Snapshots captured before these existed read 0 rather than being
+  // back-filled — the API cannot know what a register looked like on a date it never recorded.
+  openRiskCount: number;
+  highRiskCount: number;
+  totalOpenRiskScore: number;
+
+  openIssueCount: number;
+  severeOpenIssueCount: number;
+
+  milestoneCount: number;
+  milestonesCompleteCount: number;
+  milestonesDelayedCount: number;
+  worstMilestoneDelayDays: number;
+
+  openEarlyWarningCount: number;
+  openCompensationEventCount: number;
+  compensationEventValue: number;
+
+  openVariationCount: number;
+  variationValue: number;
+  extensionOfTimeDaysAwarded: number;
 }
 
 const key = (projectId: string) => ["projects", "detail", projectId, "snapshots"] as const;
