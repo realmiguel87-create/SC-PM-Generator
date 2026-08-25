@@ -2,7 +2,6 @@
  * Thin fetch wrapper. Auth token attachment happens here so every feature hook gets it "for
  * free" — every request goes through acquireAccessToken below.
  */
-import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { msalInstance } from "@/lib/msal-instance";
 import { loginRequest, silentRedirectUri } from "@/lib/msal-config";
 
@@ -31,13 +30,19 @@ async function getAccessToken(): Promise<string | null> {
       "[SCPM auth] Silent token acquisition failed; request will be sent unauthenticated:",
       error,
     );
-    // Silent acquisition needs an interactive prompt (expired session, revoked consent, etc.).
-    // Deliberately not popping a popup from inside an arbitrary background fetch — that's a
-    // jarring UX from, say, a TanStack Query background refetch. AppShell's sign-in control is
-    // where interactive auth belongs; this just lets the request go out unauthenticated so the
-    // API's 401 surfaces the need to re-authenticate through the normal UI path.
-    if (error instanceof InteractionRequiredAuthError) return null;
-    throw error;
+    // Every silent failure returns null rather than throwing, so the request still goes out and
+    // the API's 401 becomes the visible symptom.
+    //
+    // Previously only InteractionRequiredAuthError returned null and everything else was
+    // rethrown. That meant a failure like "timed_out" or "block_iframe_reload" aborted before
+    // fetch was ever called — nothing appeared in the network log at all, and the UI reported a
+    // generic failure with no request to inspect. Hard to diagnose, and it hides a recoverable
+    // situation behind an unrecoverable-looking one.
+    //
+    // Still no interactive prompt from here: raising one inside an arbitrary background refetch
+    // is a jarring UX. Re-authentication belongs to AppShell's sign-in control, which the 401
+    // notice directs the user towards.
+    return null;
   }
 }
 

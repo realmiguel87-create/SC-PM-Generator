@@ -31,6 +31,13 @@ export const msalConfig: Configuration = {
     redirectUri: window.location.origin,
     postLogoutRedirectUri: window.location.origin,
   },
+  system: {
+    // Default is a few seconds, which is not enough on a slow or high-latency connection — the
+    // hidden renewal iframe has to reach login.microsoftonline.com and come back within it, and
+    // exceeding it surfaces as an opaque "BrowserAuthError: timed_out" with no indication that
+    // the network was simply slow. Raising it costs nothing when the network is fast.
+    iframeBridgeTimeout: 20000,
+  },
   cache: {
     // sessionStorage, not localStorage — tokens shouldn't outlive the browser tab for a
     // council system handling governance/commercial data, and this avoids silently persisting
