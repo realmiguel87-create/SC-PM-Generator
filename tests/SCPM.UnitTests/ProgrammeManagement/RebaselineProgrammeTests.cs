@@ -24,7 +24,11 @@ namespace SCPM.UnitTests.ProgrammeManagement;
 public class RebaselineProgrammeTests
 {
     private static readonly Guid ProjectId = Guid.NewGuid();
-    private static readonly Guid Approver = Guid.NewGuid();
+    /// <summary>
+    /// The signed-in user. The approver is taken from the caller's identity rather than the
+    /// request, so this is what a rebaseline should be attributed to.
+    /// </summary>
+    private static readonly Guid SignedInUser = Guid.NewGuid();
 
     private static AppDbContext NewContext()
     {
@@ -68,7 +72,7 @@ public class RebaselineProgrammeTests
         AppDbContext db, string name = "Post-tender programme", string? reason = null)
     {
         var currentUser = Substitute.For<ICurrentUserService>();
-        currentUser.UserId.Returns(Guid.NewGuid());
+        currentUser.UserId.Returns(SignedInUser);
 
         var handler = new RebaselineProgrammeCommandHandler(db, currentUser);
         return await handler.Handle(
@@ -76,7 +80,6 @@ public class RebaselineProgrammeTests
                 ProjectId,
                 name,
                 reason ?? "Tender returns came in three months later than programmed.",
-                Approver,
                 new DateOnly(2026, 9, 1)),
             CancellationToken.None);
     }
@@ -117,6 +120,47 @@ public class RebaselineProgrammeTests
         var original = await db.ProgrammeBaselines.SingleAsync(b => b.Revision == 1);
         original.ApprovedBy.Should().BeNull();
         original.ApprovedDate.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Attributes_the_rebaseline_to_the_signed_in_user()
+    {
+        using var db = NewContext();
+        db.Milestones.Add(MilestoneWith("Start on site", new(2026, 8, 1), new(2026, 11, 1)));
+        await db.SaveChangesAsync();
+
+        await RebaselineAsync(db);
+
+        // The approver comes from the caller's identity, not the request. It was a parameter and
+        // could not be used: it is an SCPM user id, and a browser has no way to know one — so the
+        // field could only ever be filled by typing a GUID, which in a record evidencing who
+        // sanctioned a change is worse than leaving it empty.
+        var current = await db.ProgrammeBaselines.SingleAsync(b => b.IsCurrent);
+        current.ApprovedBy.Should().Be(SignedInUser);
+        current.ApprovedDate.Should().Be(new DateOnly(2026, 9, 1));
+    }
+
+    [Fact]
+    public async Task Records_neither_approver_nor_date_when_no_approval_is_given()
+    {
+        using var db = NewContext();
+        db.Milestones.Add(MilestoneWith("Start on site", new(2026, 8, 1), new(2026, 11, 1)));
+        await db.SaveChangesAsync();
+
+        var currentUser = Substitute.For<ICurrentUserService>();
+        currentUser.UserId.Returns(SignedInUser);
+
+        await new RebaselineProgrammeCommandHandler(db, currentUser).Handle(
+            new RebaselineProgrammeCommand(
+                ProjectId, "Working revision", "Recorded before the committee has met.", null),
+            CancellationToken.None);
+
+        // The two travel together or not at all. An approver with no date reads as authority
+        // without being any: it would say someone signed this off while recording no moment at
+        // which they did.
+        var current = await db.ProgrammeBaselines.SingleAsync(b => b.IsCurrent);
+        current.ApprovedBy.Should().BeNull();
+        current.ApprovedDate.Should().BeNull();
     }
 
     [Fact]

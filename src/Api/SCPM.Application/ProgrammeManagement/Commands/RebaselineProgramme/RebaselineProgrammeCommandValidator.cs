@@ -21,16 +21,9 @@ public class RebaselineProgrammeCommandValidator : AbstractValidator<RebaselineP
                        + "sanctioned programme changed.")
             .MaximumLength(2000);
 
-        // Approver and date travel together: a date with nobody attached, or an approver with no
-        // date, is a half-record that reads as authority without being any.
-        RuleFor(x => x.ApprovedDate)
-            .NotNull()
-            .When(x => x.ApprovedBy.HasValue)
-            .WithMessage("An approval date is required when an approver is named.");
-
-        RuleFor(x => x.ApprovedBy)
-            .NotNull()
-            .When(x => x.ApprovedDate.HasValue)
-            .WithMessage("An approver is required when an approval date is given.");
+        // No rule pairing approver and date any more: the approver is no longer supplied by the
+        // caller, so the handler sets both together or neither, and the pairing cannot be broken
+        // from outside. A validation rule guarding an invariant the type system already holds is
+        // a rule that will one day be wrong without anyone noticing.
     }
 }

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import { MilestoneTimeline } from "./MilestoneTimeline";
 import { BaselineSelector } from "./BaselineSelector";
+import { RebaselineForm } from "./RebaselineForm";
 import { comparisonToMilestones, summariseScopeChange } from "./baseline";
 import {
   useCreateMilestone,
@@ -55,6 +56,8 @@ export function ProgrammeTab({ projectId }: { projectId: string }) {
       )}
 
       <MilestoneTimeline milestones={chartMilestones} />
+
+      <RebaselineForm projectId={projectId} milestones={milestones} />
 
       <Card>
         <CardHeader><CardTitle>Add Milestone</CardTitle></CardHeader>

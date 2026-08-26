@@ -62,7 +62,11 @@ public class ProgrammeController : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
-    public record RebaselineProgrammeRequest(string Name, string Reason, Guid? ApprovedBy, DateOnly? ApprovedDate);
+    /// <summary>
+    /// The approver is deliberately absent: it is taken from the caller's identity rather than the
+    /// request body. See RebaselineProgrammeCommand for why a client cannot supply it.
+    /// </summary>
+    public record RebaselineProgrammeRequest(string Name, string Reason, DateOnly? ApprovedDate);
 
     /// <summary>
     /// Rebaselines the programme. Requires approval rights rather than write rights: this changes
@@ -74,7 +78,7 @@ public class ProgrammeController : ControllerBase
         Guid projectId, RebaselineProgrammeRequest request, CancellationToken ct)
     {
         var id = await _mediator.Send(new RebaselineProgrammeCommand(
-            projectId, request.Name, request.Reason, request.ApprovedBy, request.ApprovedDate), ct);
+            projectId, request.Name, request.Reason, request.ApprovedDate), ct);
         return Ok(id);
     }
 }

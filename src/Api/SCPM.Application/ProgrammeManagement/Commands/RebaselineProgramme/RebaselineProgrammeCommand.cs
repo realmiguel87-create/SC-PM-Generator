@@ -9,11 +9,25 @@ namespace SCPM.Application.ProgrammeManagement.Commands.RebaselineProgramme;
 /// Rebaselines a project's programme: the current forecast becomes the sanctioned dates, and the
 /// programme being replaced is kept as a numbered, named, reasoned record.
 /// </summary>
+/// <param name="ApprovedDate">
+/// When the rebaseline was sanctioned. The approver is not a parameter: it is taken from the
+/// caller's identity.
+///
+/// It was originally a parameter, and could not be used. The approver is an SCPM user id — the
+/// `scpm_user_id` claim minted by EntraClaimsTransformation — and a browser client has no way to
+/// know it; MSAL knows only the Entra object id. The field could therefore only be filled by
+/// typing a GUID, which in a record whose purpose is evidencing who sanctioned a change is worse
+/// than leaving it empty: an unusable field invites a wrong one.
+///
+/// So this records who exercised the authority to make the change, which is a fact the server
+/// holds and can vouch for. Attributing it instead to the body that took the decision — a
+/// committee rather than the officer recording its minute — is a modelling question, not a
+/// parameter, and is noted in the roadmap.
+/// </param>
 public record RebaselineProgrammeCommand(
     Guid ProjectId,
     string Name,
     string Reason,
-    Guid? ApprovedBy,
     DateOnly? ApprovedDate) : IRequest<Guid>;
 
 public class RebaselineProgrammeCommandHandler : IRequestHandler<RebaselineProgrammeCommand, Guid>
@@ -99,7 +113,9 @@ public class RebaselineProgrammeCommandHandler : IRequestHandler<RebaselineProgr
             nextRevision,
             request.Name,
             request.Reason,
-            request.ApprovedBy,
+            // Approver and date travel together or not at all: a date with nobody attached, or a
+            // name with no date, is a half-record that reads as authority without being any.
+            request.ApprovedDate.HasValue ? userId : null,
             request.ApprovedDate,
             isCurrent: true,
             createdBy: userId,
