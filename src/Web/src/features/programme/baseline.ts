@@ -92,6 +92,57 @@ export function describeBaseline(baseline: ProgrammeBaseline): string {
 }
 
 /**
+ * What a rebaseline would actually do, worked out before it is done.
+ *
+ * Rebaselining is not an edit — it moves the measure the project is judged against, and its most
+ * visible effect is that slip everyone has been watching drops to zero. That is correct, and it is
+ * also exactly the kind of change that should not happen to someone who did not realise it would.
+ * So the effect is shown first, in the terms a reader cares about: how many dates move, and what
+ * the slip figure stops saying.
+ */
+export interface RebaselineEffect {
+  /** Milestones whose sanctioned date would change. */
+  moving: number;
+  total: number;
+  /** The largest slip that would be re-sanctioned to zero. */
+  worstSlipCleared: number;
+  worstSlipName: string | null;
+}
+
+export function describeRebaselineEffect(milestones: Milestone[]): RebaselineEffect {
+  // A milestone moves if the date it would be re-sanctioned to differs from the one it holds.
+  // Same precedence as everywhere else: an actual supersedes a forecast it has overtaken.
+  const moving = milestones.filter(
+    (m) => (m.actualDate ?? m.forecastDate) !== m.baselineDate,
+  );
+
+  const worst = moving.reduce<Milestone | null>(
+    (found, m) => (m.delayDays > 0 && (found === null || m.delayDays > found.delayDays) ? m : found),
+    null,
+  );
+
+  return {
+    moving: moving.length,
+    total: milestones.length,
+    worstSlipCleared: worst?.delayDays ?? 0,
+    worstSlipName: worst?.name ?? null,
+  };
+}
+
+/** Mirrors RebaselineProgrammeCommandValidator, the same way NewProjectForm mirrors its own. */
+export function validateRebaseline(name: string, reason: string): string | null {
+  if (name.trim().length === 0) return "Give the baseline a name.";
+  if (name.trim().length > 200) return "The name is limited to 200 characters.";
+  // Ten characters does not make an explanation good, but it stops the reflexive one-word entry
+  // in the field that is the whole record of why the sanctioned programme changed.
+  if (reason.trim().length < 10) {
+    return "Give a reason for the rebaseline — this is the record of why the sanctioned programme changed.";
+  }
+  if (reason.trim().length > 2000) return "The reason is limited to 2000 characters.";
+  return null;
+}
+
+/**
  * Orders baselines for display: newest revision first.
  *
  * Sorted here rather than trusted from the server. The endpoint does order them, but a list whose

@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   comparisonToMilestones,
   describeBaseline,
+  describeRebaselineEffect,
   orderBaselines,
   summariseScopeChange,
+  validateRebaseline,
 } from "./baseline";
 import { buildTimeline, summariseDelay } from "./timeline";
 import type {
+  Milestone,
   MilestoneAgainstBaseline,
   ProgrammeAgainstBaseline,
   ProgrammeBaseline,
@@ -166,6 +169,95 @@ describe("summariseScopeChange", () => {
     const change = summariseScopeChange(comparison({ milestones: [row()] }));
 
     expect(change.hasChanges).toBe(false);
+  });
+});
+
+describe("describeRebaselineEffect", () => {
+  function milestone(overrides: Partial<Milestone> = {}): Milestone {
+    return {
+      id: crypto.randomUUID(),
+      name: "Start on site",
+      description: null,
+      status: "InProgress",
+      baselineDate: "2026-08-01",
+      forecastDate: "2026-11-01",
+      actualDate: null,
+      isKeyMilestone: false,
+      delayDays: 92,
+      ...overrides,
+    };
+  }
+
+  it("names the slip that is about to be re-sanctioned to zero", () => {
+    const effect = describeRebaselineEffect([
+      milestone({ name: "Start on site", delayDays: 92 }),
+      milestone({ name: "Enabling works", forecastDate: "2026-08-11", delayDays: 10 }),
+    ]);
+
+    // "Worst slip: 92d" becoming "Nothing has slipped" is the whole effect of rebaselining, and
+    // it is what a reader would otherwise discover only afterwards.
+    expect(effect.worstSlipCleared).toBe(92);
+    expect(effect.worstSlipName).toBe("Start on site");
+    expect(effect.moving).toBe(2);
+    expect(effect.total).toBe(2);
+  });
+
+  it("does not count a milestone already sitting on its baseline as moving", () => {
+    const effect = describeRebaselineEffect([
+      milestone({ baselineDate: "2026-11-01", forecastDate: "2026-11-01", delayDays: 0 }),
+      milestone({ name: "Late one", delayDays: 92 }),
+    ]);
+
+    expect(effect.moving).toBe(1);
+    expect(effect.total).toBe(2);
+  });
+
+  it("measures a completed milestone against its actual date", () => {
+    const effect = describeRebaselineEffect([
+      milestone({
+        baselineDate: "2026-06-15",
+        forecastDate: "2026-09-01",
+        actualDate: "2026-06-15",
+        status: "Complete",
+        delayDays: 0,
+      }),
+    ]);
+
+    // Its forecast still says September, but it completed on its baseline date — so rebaselining
+    // would change nothing about it. Reading the forecast would report a move that is not real.
+    expect(effect.moving).toBe(0);
+  });
+
+  it("reports no slip cleared when a programme is only running early", () => {
+    const effect = describeRebaselineEffect([
+      milestone({ forecastDate: "2026-07-01", delayDays: -31 }),
+    ]);
+
+    // Recovery is a move, but it is not a slip being cleared — announcing one would describe the
+    // opposite of what is happening.
+    expect(effect.moving).toBe(1);
+    expect(effect.worstSlipCleared).toBe(0);
+    expect(effect.worstSlipName).toBeNull();
+  });
+});
+
+describe("validateRebaseline", () => {
+  it("accepts a name with a real reason", () => {
+    expect(validateRebaseline("Post-tender", "Tender returns came in late.")).toBeNull();
+  });
+
+  it("rejects a one-word reason", () => {
+    // The reason is the entire record of why the sanctioned programme changed. Ten characters
+    // does not make an explanation good, but it stops the reflexive "update".
+    expect(validateRebaseline("Post-tender", "update")).toMatch(/reason/i);
+  });
+
+  it("rejects whitespace padded out to look like a reason", () => {
+    expect(validateRebaseline("Post-tender", "          ")).toMatch(/reason/i);
+  });
+
+  it("rejects a missing name", () => {
+    expect(validateRebaseline("   ", "Tender returns came in late.")).toMatch(/name/i);
   });
 });
 

@@ -61,6 +61,37 @@ export function useProgrammeAgainstBaseline(
   });
 }
 
+/**
+ * Rebaselines the programme.
+ *
+ * Invalidates the milestones as well as the baselines: rebaselining rewrites every milestone's
+ * baseline date, so a cache holding the old ones would leave the table below the chart showing
+ * slip against a programme that has just been superseded.
+ *
+ * No approver is sent. It is taken from the caller's identity server-side — a browser cannot know
+ * an SCPM user id. See RebaselineProgrammeCommand.
+ */
+export function useRebaselineProgramme(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { name: string; reason: string; approvedDate?: string }) =>
+      apiClient.post<string>(`/projects/${projectId}/baselines`, {
+        name: vars.name,
+        reason: vars.reason,
+        approvedDate: vars.approvedDate || null,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: key(projectId) });
+      await queryClient.invalidateQueries({
+        queryKey: ["projects", "detail", projectId, "baselines"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["projects", "detail", projectId, "baseline-comparison"],
+      });
+    },
+  });
+}
+
 export function useUpdateMilestoneStatus(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
