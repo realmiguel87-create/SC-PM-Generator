@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import type { Milestone, MilestoneStatus } from "./types";
+import type {
+  Milestone,
+  MilestoneStatus,
+  ProgrammeAgainstBaseline,
+  ProgrammeBaseline,
+} from "./types";
 
 const key = (projectId: string) => ["projects", "detail", projectId, "milestones"] as const;
 
@@ -23,6 +28,36 @@ export function useCreateMilestone(projectId: string) {
       isKeyMilestone: boolean;
     }) => apiClient.post<string>(`/projects/${projectId}/milestones`, vars),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key(projectId) }),
+  });
+}
+
+/** The project's sanctioned programmes, newest revision first. */
+export function useProgrammeBaselines(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ["projects", "detail", projectId ?? "", "baselines"] as const,
+    queryFn: () => apiClient.get<ProgrammeBaseline[]>(`/projects/${projectId}/baselines`),
+    enabled: !!projectId,
+  });
+}
+
+/**
+ * The programme measured against one baseline.
+ *
+ * Only runs when a baseline is actually selected. Passing no id would make the endpoint answer for
+ * the current baseline, which is the same picture the milestone list already gives — a request
+ * whose result the screen would discard.
+ */
+export function useProgrammeAgainstBaseline(
+  projectId: string | undefined,
+  baselineId: string | undefined,
+) {
+  return useQuery({
+    queryKey: ["projects", "detail", projectId ?? "", "baseline-comparison", baselineId ?? ""] as const,
+    queryFn: () =>
+      apiClient.get<ProgrammeAgainstBaseline>(
+        `/projects/${projectId}/baseline-comparison?baselineId=${baselineId}`,
+      ),
+    enabled: !!projectId && !!baselineId,
   });
 }
 
