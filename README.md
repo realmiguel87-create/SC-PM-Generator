@@ -98,11 +98,42 @@ dotnet ef database update --project SCPM.Infrastructure --startup-project SCPM.A
 
 # Views and the stage-gate stored procedure aren't EF-managed; apply them once after the
 # tables exist (see database/schema/README.md for why these stay hand-written SQL):
+# (adjust -S if your database isn't LocalDB — see "Which database do the EF tools use?" below)
 sqlcmd -S "(localdb)\mssqllocaldb" -d SCPM -i ../../database/views/010_Projects_Views.sql
 sqlcmd -S "(localdb)\mssqllocaldb" -d SCPM -i ../../database/procedures/010_Governance_ApproveGateway.sql
 
 dotnet run --project SCPM.Api
 ```
+
+#### Which database do the EF tools use?
+
+`dotnet ef` does **not** read `launchSettings.json`, so `ASPNETCORE_ENVIRONMENT` is unset when it
+runs and none of the Development-only configuration applies. The connection string is resolved by
+`DesignTimeConnectionString`, in this order:
+
+1. **`ConnectionStrings__SqlServer` in the environment.** How CI and containers supply it. The
+   double underscore is the configuration system's separator — it lands at
+   `ConnectionStrings:SqlServer`.
+2. **SCPM.Api's user secrets.** How to hold a real connection string without committing it:
+   ```bash
+   cd src/Api/SCPM.Api
+   dotnet user-secrets set "ConnectionStrings:SqlServer" 'Server=...;Database=...;User Id=...;Password=...'
+   ```
+   Note the single quotes — a connection string contains characters your shell will otherwise eat.
+3. **A LocalDB fallback**, so `dotnet ef migrations add` works on a machine with neither. That
+   command never opens a connection; it only needs a provider to generate SQL Server syntax.
+   `database update` *does* connect, and will fail here if LocalDB isn't installed — correctly,
+   because at that point nothing has said where the database is.
+
+`--connection "..."` overrides all three. Reach for it for a one-off against another database, not
+as the everyday route — if you find yourself needing it every time, something in the list above
+isn't set.
+
+> This used to be a trap. `AppDbContextFactory` hardcoded the LocalDB string, and because an
+> `IDesignTimeDbContextFactory` takes priority over the startup project's host builder, EF never
+> built the host at all — every `dotnet ef database update` went to LocalDB while appearing to
+> honour `--startup-project` and user secrets. It surfaced as a connection error naming a server
+> nobody had configured.
 
 ### Web
 ```bash

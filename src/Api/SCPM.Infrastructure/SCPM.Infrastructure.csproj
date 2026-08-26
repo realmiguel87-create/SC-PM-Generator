@@ -16,6 +16,10 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!-- Lets the EF design-time factory read SCPM.Api's user secrets, so `dotnet ef` finds the
+         same connection string the app uses. Not part of the shared framework, unlike the JSON
+         and environment-variable providers it sits alongside. -->
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.0" />
     <PackageReference Include="Hangfire.Core" Version="1.8.14" />
     <PackageReference Include="Hangfire.SqlServer" Version="1.8.14" />
     <!-- AddHangfire/AddHangfireServer (the IServiceCollection extensions used below) live in
