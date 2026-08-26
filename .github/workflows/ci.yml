@@ -51,10 +51,17 @@ jobs:
         run: dotnet tool install --global dotnet-ef --version 9.0.0
       - name: dotnet ef database update
         working-directory: src/Api
+        # Passed through the environment rather than `--connection` on purpose. `--connection`
+        # would work either way, which is precisely the problem: it bypasses
+        # DesignTimeConnectionString entirely, so a design-time factory that ignores
+        # configuration — as this one used to — would sail through this job while failing every
+        # developer who runs the documented command. Setting the variable makes CI take the same
+        # path a developer does.
+        env:
+          ConnectionStrings__SqlServer: "Server=127.0.0.1,1433;Database=SCPM;User Id=sa;Password=Ci_Passw0rd!;TrustServerCertificate=True"
         run: |
           dotnet ef database update \
-            --project SCPM.Infrastructure --startup-project SCPM.Api \
-            --connection "Server=127.0.0.1,1433;Database=SCPM;User Id=sa;Password=Ci_Passw0rd!;TrustServerCertificate=True"
+            --project SCPM.Infrastructure --startup-project SCPM.Api
 
   integration:
     name: Integration & RBAC tests (real SQL Server, real ASP.NET Core pipeline)
