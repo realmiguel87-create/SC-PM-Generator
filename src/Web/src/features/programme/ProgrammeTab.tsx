@@ -4,7 +4,15 @@ import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import { MilestoneTimeline } from "./MilestoneTimeline";
-import { useCreateMilestone, useMilestones, useUpdateMilestoneStatus } from "./api";
+import { BaselineSelector } from "./BaselineSelector";
+import { comparisonToMilestones, summariseScopeChange } from "./baseline";
+import {
+  useCreateMilestone,
+  useMilestones,
+  useProgrammeAgainstBaseline,
+  useProgrammeBaselines,
+  useUpdateMilestoneStatus,
+} from "./api";
 
 export function ProgrammeTab({ projectId }: { projectId: string }) {
   const { data: milestones, isLoading, isError } = useMilestones(projectId);
@@ -15,12 +23,38 @@ export function ProgrammeTab({ projectId }: { projectId: string }) {
   const [baselineDate, setBaselineDate] = useState("");
   const [forecastDate, setForecastDate] = useState("");
 
+  // Undefined means the live programme — the same picture the milestone table below shows.
+  const [selectedBaselineId, setSelectedBaselineId] = useState<string | undefined>();
+
+  // Deliberately not gated behind the milestone request's isLoading: baselines are a separate
+  // call, and a slow one should not hold up the programme itself.
+  const { data: baselines } = useProgrammeBaselines(projectId);
+  const comparison = useProgrammeAgainstBaseline(projectId, selectedBaselineId);
+
   if (isLoading) return <p className="text-sm text-text-secondary">Loading programme…</p>;
   if (isError || !milestones) return <p className="text-sm text-critical">Could not load milestones.</p>;
 
+  // While a comparison is in flight the live programme stays on screen rather than the chart
+  // blanking — swapping to an empty chart and back reads as data having gone missing.
+  const chartMilestones = comparison.data
+    ? comparisonToMilestones(comparison.data.milestones)
+    : milestones;
+
   return (
     <div className="flex flex-col gap-4">
-      <MilestoneTimeline milestones={milestones} />
+      <BaselineSelector
+        baselines={baselines ?? []}
+        selectedId={selectedBaselineId}
+        onSelect={setSelectedBaselineId}
+        scopeChange={comparison.data ? summariseScopeChange(comparison.data) : undefined}
+        reason={comparison.data?.baseline.reason}
+      />
+
+      {comparison.isError && (
+        <p className="text-sm text-critical">Could not load the comparison against that baseline.</p>
+      )}
+
+      <MilestoneTimeline milestones={chartMilestones} />
 
       <Card>
         <CardHeader><CardTitle>Add Milestone</CardTitle></CardHeader>

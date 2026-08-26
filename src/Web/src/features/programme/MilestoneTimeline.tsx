@@ -172,7 +172,11 @@ function Figure({
   tone?: "neutral" | "critical";
 }) {
   return (
-    <div className="rounded-md border border-border p-2">
+    // Grouped and labelled: the three lines are a label, a figure and a caption that only mean
+    // anything together. Without this a screen reader reads "Worst slip", "92d", "Start on site"
+    // as three unrelated fragments — and two tiles showing the same number become
+    // indistinguishable to anything addressing them by text.
+    <div role="group" aria-label={label} className="rounded-md border border-border p-2">
       <p className="text-xs text-text-secondary">{label}</p>
       <p className={`text-lg font-semibold ${tone === "critical" ? "text-critical" : ""}`}>{value}</p>
       <p className="text-[11px] text-text-secondary">{note}</p>
