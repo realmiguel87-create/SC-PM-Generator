@@ -20,6 +20,8 @@ public interface IAppDbContext
     DbSet<CostPlanLine> CostPlanLines { get; }
     DbSet<Forecast> Forecasts { get; }
     DbSet<Milestone> Milestones { get; }
+    DbSet<ProgrammeBaseline> ProgrammeBaselines { get; }
+    DbSet<ProgrammeBaselineEntry> ProgrammeBaselineEntries { get; }
     DbSet<DecisionRegisterEntry> DecisionRegisterEntries { get; }
     DbSet<Snapshot> Snapshots { get; }
     DbSet<Risk> Risks { get; }
