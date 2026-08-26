@@ -24,6 +24,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Milestone> Milestones => Set<Milestone>();
     public DbSet<ProgrammeBaseline> ProgrammeBaselines => Set<ProgrammeBaseline>();
     public DbSet<ProgrammeBaselineEntry> ProgrammeBaselineEntries => Set<ProgrammeBaselineEntry>();
+    public DbSet<MilestoneDelayCause> MilestoneDelayCauses => Set<MilestoneDelayCause>();
     public DbSet<DecisionRegisterEntry> DecisionRegisterEntries => Set<DecisionRegisterEntry>();
     public DbSet<Snapshot> Snapshots => Set<Snapshot>();
     public DbSet<Risk> Risks => Set<Risk>();
@@ -65,6 +66,7 @@ public class AppDbContext : DbContext, IAppDbContext
         modelBuilder.Entity<Forecast>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Milestone>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<ProgrammeBaseline>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<MilestoneDelayCause>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<DecisionRegisterEntry>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Risk>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Issue>().HasQueryFilter(e => !e.IsDeleted);

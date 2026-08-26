@@ -24,6 +24,48 @@ public class MilestoneConfiguration : IEntityTypeConfiguration<Milestone>
     }
 }
 
+public class MilestoneDelayCauseConfiguration : IEntityTypeConfiguration<MilestoneDelayCause>
+{
+    public void Configure(EntityTypeBuilder<MilestoneDelayCause> builder)
+    {
+        // Temporal. An attribution is an assertion about who carries time risk, and revising one
+        // — reducing the days blamed on the weather after a claim is assessed, say — is exactly
+        // the sort of change a contract administrator may later be asked to account for.
+        builder.ToTable("MilestoneDelayCause", "Programme", b => b.IsTemporal(t =>
+        {
+            t.HasPeriodStart("SysStartTime");
+            t.HasPeriodEnd("SysEndTime");
+            t.UseHistoryTable("MilestoneDelayCause_History", "Programme");
+        }));
+
+        builder.Property(c => c.Narrative).HasMaxLength(2000).IsRequired();
+        builder.Property(c => c.Category).HasConversion<string>().HasMaxLength(30);
+
+        builder.HasOne(c => c.Milestone)
+            .WithMany()
+            .HasForeignKey(c => c.MilestoneId)
+            // Cascade from the milestone: a cause explains a milestone's slip, so once the
+            // milestone is gone the attribution has nothing left to be about.
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Restrict on both contractual links, and for the same reason in each case: a claim being
+        // deleted must not silently take the programme's explanation of the delay with it. It also
+        // keeps a second cascade path from reaching this table via Project, which SQL Server
+        // rejects outright (error 1785).
+        builder.HasOne(c => c.ExtensionOfTime)
+            .WithMany()
+            .HasForeignKey(c => c.ExtensionOfTimeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(c => c.CompensationEvent)
+            .WithMany()
+            .HasForeignKey(c => c.CompensationEventId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(c => c.MilestoneId);
+    }
+}
+
 public class ProgrammeBaselineConfiguration : IEntityTypeConfiguration<ProgrammeBaseline>
 {
     public void Configure(EntityTypeBuilder<ProgrammeBaseline> builder)

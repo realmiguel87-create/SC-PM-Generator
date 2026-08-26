@@ -22,6 +22,7 @@ public interface IAppDbContext
     DbSet<Milestone> Milestones { get; }
     DbSet<ProgrammeBaseline> ProgrammeBaselines { get; }
     DbSet<ProgrammeBaselineEntry> ProgrammeBaselineEntries { get; }
+    DbSet<MilestoneDelayCause> MilestoneDelayCauses { get; }
     DbSet<DecisionRegisterEntry> DecisionRegisterEntries { get; }
     DbSet<Snapshot> Snapshots { get; }
     DbSet<Risk> Risks { get; }
