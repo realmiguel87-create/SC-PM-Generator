@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
+import { MilestoneTimeline } from "./MilestoneTimeline";
 import { useCreateMilestone, useMilestones, useUpdateMilestoneStatus } from "./api";
 
 export function ProgrammeTab({ projectId }: { projectId: string }) {
@@ -19,6 +20,8 @@ export function ProgrammeTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <MilestoneTimeline milestones={milestones} />
+
       <Card>
         <CardHeader><CardTitle>Add Milestone</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3 pt-0">
