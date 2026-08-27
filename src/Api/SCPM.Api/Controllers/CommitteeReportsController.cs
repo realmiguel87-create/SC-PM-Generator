@@ -45,26 +45,42 @@ public class CommitteeReportsController : ControllerBase
         return report is null ? NotFound() : Ok(report);
     }
 
-    public record CreateCommitteeReportRequest(CommitteeReportType ReportType, string Title, DateOnly? MeetingDate, Guid? SnapshotId);
+    /// <summary>
+    /// <c>ReportDate</c> is the date the position is reported as at — the status report's own
+    /// "Report Date". <c>MeetingDate</c> is when a committee sits, and is left null on a status
+    /// report, which is not written for a meeting.
+    /// </summary>
+    public record CreateCommitteeReportRequest(
+        CommitteeReportType ReportType,
+        string Title,
+        DateOnly? MeetingDate,
+        DateOnly? ReportDate,
+        Guid? SnapshotId);
 
     [HttpPost("api/projects/{projectId:guid}/committee-reports")]
     [Authorize(Policy = "CanWrite")]
-    public async Task<ActionResult<Guid>> CreateReport(Guid projectId, CreateCommitteeReportRequest request, CancellationToken ct)
-        => Ok(await _mediator.Send(new CreateCommitteeReportCommand(projectId, request.ReportType, request.Title, request.MeetingDate, request.SnapshotId), ct));
+    public async Task<ActionResult<Guid>> CreateReport(
+        Guid projectId, CreateCommitteeReportRequest request, CancellationToken ct)
+        => Ok(await _mediator.Send(new CreateCommitteeReportCommand(
+            projectId, request.ReportType, request.Title,
+            request.MeetingDate, request.ReportDate, request.SnapshotId), ct));
 
+    /// <summary>
+    /// Only the sections being changed need be sent. The previous shape took all ten fields, so a
+    /// client editing one paragraph had to return the whole document — and anything it omitted was
+    /// written as null, silently erasing sections nobody meant to touch.
+    /// </summary>
     public record UpdateCommitteeReportRequest(
-        string ExecutiveSummary, string? Background, string? CurrentPosition, string? FinanceCommentary,
-        string? ProgrammeCommentary, string? RiskCommentary, string? StakeholderCommentary,
-        string? SustainabilityCommentary, string? EqualityImpactCommentary, string? Recommendations);
+        List<ReportSectionUpdate> Sections,
+        DateOnly? ReportDate);
 
     [HttpPut("api/committee-reports/{id:guid}")]
     [Authorize(Policy = "CanWrite")]
-    public async Task<IActionResult> UpdateReport(Guid id, UpdateCommitteeReportRequest request, CancellationToken ct)
+    public async Task<IActionResult> UpdateReport(
+        Guid id, UpdateCommitteeReportRequest request, CancellationToken ct)
     {
         await _mediator.Send(new UpdateCommitteeReportCommand(
-            id, request.ExecutiveSummary, request.Background, request.CurrentPosition, request.FinanceCommentary,
-            request.ProgrammeCommentary, request.RiskCommentary, request.StakeholderCommentary,
-            request.SustainabilityCommentary, request.EqualityImpactCommentary, request.Recommendations), ct);
+            id, request.Sections ?? [], request.ReportDate), ct);
         return NoContent();
     }
 

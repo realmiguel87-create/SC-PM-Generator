@@ -32,11 +32,54 @@ internal static class OpenXmlReportBuilder
     /// <summary>Open XML wants "675A8F"; the shared palette constants are CSS-style "#675A8F".</summary>
     private static string Rgb(string cssHex) => cssHex.TrimStart('#');
 
+    /// <summary>
+    /// The facts printed under the title: who owns the project, its reference, its budget.
+    ///
+    /// Only the ones actually known are returned. A header row reading "Project Sponsor: —" tells
+    /// a reader nothing except that the platform has a field for it.
+    /// </summary>
+    internal static IEnumerable<(string Label, string Value)> HeaderFacts(CommitteeReportDto report)
+    {
+        yield return ("Project ID Ref", report.ProjectRef);
+
+        if (!string.IsNullOrWhiteSpace(report.SponsorName))
+        {
+            yield return ("Project Sponsor", report.SponsorName);
+        }
+
+        if (!string.IsNullOrWhiteSpace(report.ProjectManagerName))
+        {
+            yield return ("Project Manager", report.ProjectManagerName);
+        }
+
+        if (report.ApprovedBudget > 0)
+        {
+            yield return ("Budget", report.ApprovedBudget.ToString("C0", Culture));
+        }
+    }
+
+    /// <summary>
+    /// Sterling, explicitly. Without a culture the server's own decides, and a council report
+    /// rendering "$358,000" on a machine that happens to be configured for the United States is
+    /// the kind of defect that is only ever found by a reader.
+    /// </summary>
+    internal static readonly System.Globalization.CultureInfo Culture = new("en-GB");
+
+    /// <summary>
+    /// Splits section content into display lines, dropping blanks. Handles both newline
+    /// conventions: text arriving from a browser textarea carries \r\n, and splitting on \n
+    /// alone leaves a stray carriage return that Word renders as a box.
+    /// </summary>
+    internal static IEnumerable<string> SplitLines(string content) =>
+        content.Replace("\r\n", "\n").Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0);
+
     // --- DOCX ---
 
     public static byte[] BuildDocx(
         CommitteeReportDto report,
-        (string Heading, Func<CommitteeReportDto, string?> Select)[] sections,
+        IReadOnlyList<ReportSectionDto> sections,
         string purple,
         string secondary)
     {
@@ -58,13 +101,35 @@ internal static class OpenXmlReportBuilder
                     $"Meeting date: {report.MeetingDate:d MMMM yyyy}", 20, Rgb(secondary)));
             }
 
-            foreach (var (heading, select) in sections)
+            if (report.ReportDate.HasValue)
             {
-                var value = select(report);
-                if (string.IsNullOrWhiteSpace(value)) continue;
+                body.Append(TextParagraph(
+                    $"Report date: {report.ReportDate:d MMMM yyyy}", 20, Rgb(secondary)));
+            }
 
-                body.Append(TextParagraph(heading, 26, Rgb(purple), bold: true));
-                body.Append(TextParagraph(value, 20, "000000"));
+            // The status report's header block: sponsor, manager, reference, budget. Rendered as
+            // label/value pairs rather than a table, because a Word table needs a grid, borders
+            // and per-cell widths declared in a specific order, and the value here is the
+            // information rather than the ruled box around it.
+            foreach (var (label, value) in HeaderFacts(report))
+            {
+                body.Append(TextParagraph($"{label}: {value}", 20, Rgb(secondary)));
+            }
+
+            foreach (var section in sections)
+            {
+                if (string.IsNullOrWhiteSpace(section.Content)) continue;
+
+                body.Append(TextParagraph(section.Heading, 26, Rgb(purple), bold: true));
+
+                // Split on newlines so a section typed as a list reads as one. The council's
+                // template uses bullets throughout, and a five-item list collapsed into a single
+                // run of prose is the difference between a document someone scans and one they
+                // have to read twice.
+                foreach (var line in SplitLines(section.Content))
+                {
+                    body.Append(TextParagraph(line, 20, "000000"));
+                }
             }
 
             main.Document = new W.Document(body);
@@ -140,6 +205,171 @@ internal static class OpenXmlReportBuilder
         return stream.ToArray();
     }
 
+    // --- Status report (council template PD.01.25) ---
+
+    /// <summary>
+    /// Column widths in twentieths of a point, taken from the council's own template so the
+    /// generated document lines up with one produced by hand. A4 minus margins is 10,194 twips,
+    /// which is what these four sum to.
+    /// </summary>
+    private static readonly int[] StatusGrid = [3000, 3091, 1984, 2119];
+
+    private const int StatusLabelWidth = 3000;
+    private const int StatusWideValueWidth = 7194;
+
+    /// <summary>
+    /// The Infrastructure Delivery status report, reproducing the council's template: two title
+    /// lines, a bordered table of six header facts and six narrative sections, and the document
+    /// control footer.
+    ///
+    /// Built as a table rather than as headings and paragraphs because that is what the template
+    /// is. A status report that is recognisably the council's own document gets read; one that
+    /// merely contains the same words in a different shape invites a conversation about why it
+    /// looks different, which is a conversation about the tool rather than about the project.
+    /// </summary>
+    public static byte[] BuildStatusReportDocx(
+        CommitteeReportDto report,
+        IReadOnlyList<ReportSectionDto> sections,
+        string purple,
+        string green)
+    {
+        using var stream = new MemoryStream();
+
+        using (var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document))
+        {
+            var main = document.AddMainDocumentPart();
+            var body = new W.Body();
+
+            body.Append(TextParagraph("Infrastructure Delivery: Programme Governance", 22, Rgb(green), bold: true));
+            body.Append(TextParagraph("Programme/Project Status Report", 32, Rgb(purple), bold: true));
+            body.Append(TextParagraph(string.Empty, 12, "000000"));
+
+            var table = new W.Table(
+                new W.TableProperties(
+                    // Fixed width, not a percentage: the template's proportions are the point, and
+                    // an auto-fitting table would recompute them from content length.
+                    new W.TableWidth { Width = StatusGrid.Sum().ToString(), Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableBorders(
+                        new W.TopBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) },
+                        new W.LeftBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) },
+                        new W.BottomBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) },
+                        new W.RightBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) },
+                        new W.InsideHorizontalBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) },
+                        new W.InsideVerticalBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) })),
+                new W.TableGrid(StatusGrid.Select(w => new W.GridColumn { Width = w.ToString() })));
+
+            var budget = report.ApprovedBudget > 0
+                ? report.ApprovedBudget.ToString("C2", Culture)
+                : string.Empty;
+
+            // Three rows of four cells: label, value, label, value.
+            foreach (var (leftLabel, leftValue, rightLabel, rightValue) in new[]
+            {
+                ("Project/Programme Name:", report.ProjectName, "Project ID Ref:", report.ProjectRef),
+                ("Project Sponsor:", report.SponsorName ?? string.Empty, "Report Date:", FormatReportDate(report)),
+                ("Project Manager:", report.ProjectManagerName ?? string.Empty, "Budget:", budget),
+            })
+            {
+                table.Append(new W.TableRow(
+                    StatusCell(leftLabel, StatusGrid[0], purple, label: true),
+                    StatusCell(leftValue, StatusGrid[1], purple, label: false),
+                    StatusCell(rightLabel, StatusGrid[2], purple, label: true),
+                    StatusCell(rightValue, StatusGrid[3], purple, label: false)));
+            }
+
+            // Six rows of two, the value cell spanning the remaining three grid columns.
+            foreach (var section in sections)
+            {
+                table.Append(new W.TableRow(
+                    StatusCell($"{section.Heading}:", StatusLabelWidth, purple, label: true),
+                    StatusCell(section.Content, StatusWideValueWidth, purple, label: false, gridSpan: 3)));
+            }
+
+            body.Append(table);
+            main.Document = new W.Document(body);
+
+            AppendDocumentControlFooter(main, green);
+        }
+
+        return stream.ToArray();
+    }
+
+    /// <summary>
+    /// The report date as the template writes it. Blank rather than a placeholder when unset: an
+    /// empty cell reads as "not filled in yet", which is true, where a dash reads as a decision.
+    /// </summary>
+    private static string FormatReportDate(CommitteeReportDto report) =>
+        report.ReportDate?.ToString("d MMMM yyyy", Culture)
+        ?? report.MeetingDate?.ToString("d MMMM yyyy", Culture)
+        ?? string.Empty;
+
+    /// <summary>
+    /// One cell of the status report table. Multi-line content becomes one paragraph per line, so
+    /// a section typed as a list reads as a list.
+    /// </summary>
+    private static W.TableCell StatusCell(
+        string? text, int widthTwips, string purple, bool label, int gridSpan = 1)
+    {
+        // Order within tcPr is schema-enforced: tcW, then gridSpan, then shd. Getting this wrong
+        // produces a file Word declares corrupt rather than one that merely looks odd.
+        var properties = new W.TableCellProperties(
+            new W.TableCellWidth { Width = widthTwips.ToString(), Type = W.TableWidthUnitValues.Dxa });
+
+        if (gridSpan > 1) properties.Append(new W.GridSpan { Val = gridSpan });
+
+        if (label)
+        {
+            properties.Append(new W.Shading
+            {
+                Val = W.ShadingPatternValues.Clear,
+                Color = "auto",
+                // A light tint of the brand purple. The full colour behind bold text at this size
+                // fails contrast badly, and a status report is a document people read at length.
+                Fill = "EFECF5",
+            });
+        }
+
+        var cell = new W.TableCell(properties);
+        var lines = string.IsNullOrWhiteSpace(text) ? [string.Empty] : SplitLines(text!).ToArray();
+
+        // A cell must contain at least one paragraph; an empty cell produces a file Word reports
+        // as corrupt rather than one with a blank space in it.
+        if (lines.Length == 0) lines = [string.Empty];
+
+        foreach (var line in lines)
+        {
+            cell.Append(TextParagraph(line, 20, label ? Rgb(purple) : "000000", bold: label));
+        }
+
+        return cell;
+    }
+
+    /// <summary>
+    /// The controlled-document footer the council's template carries. Reproduced because it is
+    /// what makes the output a version of PD.01.25 rather than a lookalike.
+    /// </summary>
+    private static void AppendDocumentControlFooter(MainDocumentPart main, string green)
+    {
+        var footerPart = main.AddNewPart<FooterPart>();
+        footerPart.Footer = new W.Footer(
+            TextParagraph(
+                "Doc No: PD.01.25    Issued by: Project Delivery    Date: Jun-17    Version: 01",
+                16,
+                Rgb(green)));
+        footerPart.Footer.Save();
+
+        var footerId = main.GetIdOfPart(footerPart);
+
+        // sectPr goes last in the body, after all content. Word tolerates a great deal but not
+        // this: a section properties element among the paragraphs is a validation error.
+        main.Document.Body!.Append(new W.SectionProperties(
+            new W.FooterReference { Type = W.HeaderFooterValues.Default, Id = footerId },
+            new W.PageSize { Width = 11906, Height = 16838 },
+            new W.PageMargin { Top = 851, Right = 851, Bottom = 851, Left = 851, Header = 709, Footer = 709 }));
+
+        main.Document.Save();
+    }
+
     private static W.Table Table(ExportTable table, string purple)
     {
         // Three orderings matter here and none of them is alphabetical or intuitive; all three
@@ -202,7 +432,7 @@ internal static class OpenXmlReportBuilder
 
     public static byte[] BuildPptx(
         CommitteeReportDto report,
-        (string Heading, Func<CommitteeReportDto, string?> Select)[] sections,
+        IReadOnlyList<ReportSectionDto> sections,
         string purple,
         string secondary)
     {
@@ -215,11 +445,10 @@ internal static class OpenXmlReportBuilder
         // One slide per populated section. Long sections are not paginated across slides — see
         // docs/roadmap.md; a section longer than a slide overflows its text box rather than
         // continuing onto a second slide.
-        foreach (var (heading, select) in sections)
+        foreach (var section in sections)
         {
-            var value = select(report);
-            if (string.IsNullOrWhiteSpace(value)) continue;
-            slides.Add((heading, value));
+            if (string.IsNullOrWhiteSpace(section.Content)) continue;
+            slides.Add((section.Heading, section.Content));
         }
 
         return BuildPptxFrom(slides, purple, secondary, monospacedBody: false);

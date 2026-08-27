@@ -39,9 +39,13 @@ export function useCreateCommitteeReport(projectId: string) {
 export function useUpdateCommitteeReport(projectId: string, reportId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (vars: Omit<CommitteeReport,
-      "id" | "projectId" | "projectName" | "projectRef" | "reportType" | "title" | "meetingDate" | "status" | "createdDate">) =>
-      apiClient.put<void>(`/committee-reports/${reportId}`, vars),
+    // Sections only, and only the ones being changed. The server treats an omitted section as
+    // unchanged; the previous shape sent the whole document back, so anything the client failed
+    // to include was written as null and silently erased.
+    mutationFn: (vars: {
+      sections: { key: string; content: string | null }[];
+      reportDate?: string | null;
+    }) => apiClient.put<void>(`/committee-reports/${reportId}`, vars),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: listKey(projectId) });
       queryClient.invalidateQueries({ queryKey: detailKey(reportId) });
