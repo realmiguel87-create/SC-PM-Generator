@@ -421,4 +421,20 @@ Goal: prove the full-stack pattern end-to-end so every later module is a repeat 
 - [ ] **The document-control footer is hardcoded** to `PD.01.25 / Project Delivery / Jun-17 / 01`, as the council's template has it. A version that incremented per report would be more useful and is a deliberate later decision, not an oversight.
 - [ ] There is no UI for choosing a report date or for the status report's header fields; the editor renders sections only.
 
+## Phase 30 — The Status Report, Restyled
+
+- [x] **The generated status report was structurally right and visually basic**, and the reason was omission rather than judgement: no typeface was named, no cell padding set, no paragraph spacing, and a border on every cell. Those four gaps are the whole of "basic".
+- [x] **Cell borders removed entirely.** The council's template rules every cell on four sides, which is what makes a document read as a spreadsheet. One hairline separates each section instead. This is the single change that does most of the work.
+- [x] **The report name sits in a solid purple band** — a single-cell shaded table rather than a shaded paragraph, because a paragraph's shading stops at the text where a cell can take real padding on four sides.
+- [x] **Labels demoted, values promoted.** In the template "Project Sponsor:" and the sponsor's name are the same size and weight, so the eye lands on the question rather than the answer. Labels are now small, letterspaced and grey; values larger and bold.
+- [x] **Forest green carries the six section headings and purple carries the band.** Each colour does one job: purple says whose document this is, green says where you are in it. The fact labels dropped from green to grey for this reason — green in two roles would have signalled neither.
+- [x] **Real bullets with a hanging indent**, via a numbering definition, so a wrapped line sits under the text rather than under the bullet. Multi-line content previously ran together as prose.
+- [x] **Segoe UI named explicitly** in the document defaults. Word's own default differs by version — Calibri on older installs, Aptos on newer — so the same report would look different depending on who opened it.
+- [x] The mock-up used to agree the design was built in the same font stack Word uses, not a web face. A design proof that flatters the deliverable is worse than none.
+- [x] 12 tests, asserting the four decisions that carry the restyle rather than only that the words are present — a document that quietly reverted to a ruled grid would pass a text-only assertion. Verified: `dotnet build -warnaserror` clean, **140/140 unit tests**, zero `OpenXmlValidator` errors.
+- [ ] **The logo is not placed.** The file has not been supplied — it arrived as a pasted image rather than an attachment. Two things about it will shape where it goes: it needs a transparent background, or it will show as a grey square on white paper; and it is a roundel with text around the rim, which at footer size is illegible and at 55% opacity goes muddy. A white strip above the band, logo right-aligned at full strength, is the recommendation.
+- [ ] **Nobody has seen the rendered document.** Structure is asserted precisely and the validator is clean, but LibreOffice is unavailable in this environment and cannot open the council's own template either. This needs a person to open it in Word.
+- [ ] The band, hairlines and spacing are tuned by arithmetic rather than by eye. Twips are not millimetres on a page until someone looks.
+- [ ] Only the DOCX export is restyled. PDF still uses the older heading-and-paragraph layout, so the two formats of the same report no longer match.
+
 Each phase is designed to be independently shippable and reviewable. Modules from Phase 2 onward follow the same Domain → Application → Infrastructure → Api → Web pattern established in Phase 1.

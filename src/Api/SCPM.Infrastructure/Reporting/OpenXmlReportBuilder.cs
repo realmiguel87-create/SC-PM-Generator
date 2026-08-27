@@ -205,27 +205,45 @@ internal static class OpenXmlReportBuilder
         return stream.ToArray();
     }
 
-    // --- Status report (council template PD.01.25) ---
+    // --- Status report (council template PD.01.25, restyled) ---
+
+    /// <summary>Body text size in half-points — 10.5pt.</summary>
+    private const int BodyHalfPoints = 21;
+
+    /// <summary>A4 portrait, in twentieths of a point.</summary>
+    private const int PageWidth = 11906;
+    private const int PageHeight = 16838;
+    private const int SideMargin = 851;
+
+    /// <summary>Usable width between the margins: what a full-bleed element spans.</summary>
+    private const int ContentWidth = PageWidth - (SideMargin * 2);
+
+    private const string RuleGrey = "E4E0EC";
+    private const string MutedInk = "5C6770";
+    private const string BodyInk = "1F1B2A";
 
     /// <summary>
-    /// Column widths in twentieths of a point, taken from the council's own template so the
-    /// generated document lines up with one produced by hand. A4 minus margins is 10,194 twips,
-    /// which is what these four sum to.
-    /// </summary>
-    private static readonly int[] StatusGrid = [3000, 3091, 1984, 2119];
-
-    private const int StatusLabelWidth = 3000;
-    private const int StatusWideValueWidth = 7194;
-
-    /// <summary>
-    /// The Infrastructure Delivery status report, reproducing the council's template: two title
-    /// lines, a bordered table of six header facts and six narrative sections, and the document
-    /// control footer.
+    /// The Infrastructure Delivery status report.
     ///
-    /// Built as a table rather than as headings and paragraphs because that is what the template
-    /// is. A status report that is recognisably the council's own document gets read; one that
-    /// merely contains the same words in a different shape invites a conversation about why it
-    /// looks different, which is a conversation about the tool rather than about the project.
+    /// Same headings, same information and same document control as the council's template
+    /// PD.01.25, restyled. Four decisions carry the difference, and each is a deliberate departure
+    /// from the original rather than an accident of generation:
+    ///
+    ///   Cell borders are gone. The template rules every cell on four sides, which is what makes a
+    ///   document read as a spreadsheet. One hairline separates each section instead.
+    ///
+    ///   The title sits in a solid purple band, giving the page somewhere to start and putting the
+    ///   brand colour where it carries identity rather than decoration.
+    ///
+    ///   Labels are demoted and values promoted. In the template "Project Sponsor:" and the
+    ///   sponsor's name are the same size and weight, so the eye lands on the question rather than
+    ///   the answer.
+    ///
+    ///   Sections are set as real bullets with a hanging indent, because that is how they are
+    ///   written. Multi-line content previously ran together as prose.
+    ///
+    /// Green carries the six section headings and purple the band. Each colour does one job:
+    /// purple says whose document this is, green says where you are in it.
     /// </summary>
     public static byte[] BuildStatusReportDocx(
         CommitteeReportDto report,
@@ -238,56 +256,39 @@ internal static class OpenXmlReportBuilder
         using (var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document))
         {
             var main = document.AddMainDocumentPart();
+            AppendDocumentDefaults(main);
+            var bulletNumberId = AppendBulletNumbering(main);
+
             var body = new W.Body();
 
-            body.Append(TextParagraph("Infrastructure Delivery: Programme Governance", 22, Rgb(green), bold: true));
-            body.Append(TextParagraph("Programme/Project Status Report", 32, Rgb(purple), bold: true));
-            body.Append(TextParagraph(string.Empty, 12, "000000"));
+            body.Append(HeaderBand(report, purple));
+            body.Append(Spacer(120));
+            body.Append(FactsTable(report, green));
 
-            var table = new W.Table(
-                new W.TableProperties(
-                    // Fixed width, not a percentage: the template's proportions are the point, and
-                    // an auto-fitting table would recompute them from content length.
-                    new W.TableWidth { Width = StatusGrid.Sum().ToString(), Type = W.TableWidthUnitValues.Dxa },
-                    new W.TableBorders(
-                        new W.TopBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) },
-                        new W.LeftBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) },
-                        new W.BottomBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) },
-                        new W.RightBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) },
-                        new W.InsideHorizontalBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) },
-                        new W.InsideVerticalBorder { Val = W.BorderValues.Single, Size = 4, Color = Rgb(purple) })),
-                new W.TableGrid(StatusGrid.Select(w => new W.GridColumn { Width = w.ToString() })));
-
-            var budget = report.ApprovedBudget > 0
-                ? report.ApprovedBudget.ToString("C2", Culture)
-                : string.Empty;
-
-            // Three rows of four cells: label, value, label, value.
-            foreach (var (leftLabel, leftValue, rightLabel, rightValue) in new[]
-            {
-                ("Project/Programme Name:", report.ProjectName, "Project ID Ref:", report.ProjectRef),
-                ("Project Sponsor:", report.SponsorName ?? string.Empty, "Report Date:", FormatReportDate(report)),
-                ("Project Manager:", report.ProjectManagerName ?? string.Empty, "Budget:", budget),
-            })
-            {
-                table.Append(new W.TableRow(
-                    StatusCell(leftLabel, StatusGrid[0], purple, label: true),
-                    StatusCell(leftValue, StatusGrid[1], purple, label: false),
-                    StatusCell(rightLabel, StatusGrid[2], purple, label: true),
-                    StatusCell(rightValue, StatusGrid[3], purple, label: false)));
-            }
-
-            // Six rows of two, the value cell spanning the remaining three grid columns.
+            var first = true;
             foreach (var section in sections)
             {
-                table.Append(new W.TableRow(
-                    StatusCell($"{section.Heading}:", StatusLabelWidth, purple, label: true),
-                    StatusCell(section.Content, StatusWideValueWidth, purple, label: false, gridSpan: 3)));
+                // A top border on the heading is the separator. Rules between sections rather than
+                // around every cell — the single change that does most of the work.
+                body.Append(SectionHeading(section.Heading, green, rule: !first));
+                first = false;
+
+                if (string.IsNullOrWhiteSpace(section.Content))
+                {
+                    // The heading stays even when nothing is written under it. On a controlled
+                    // template every heading is expected to be present, and an absent one reads as
+                    // a template someone has edited.
+                    body.Append(Spacer(80));
+                    continue;
+                }
+
+                foreach (var line in SplitLines(section.Content))
+                {
+                    body.Append(BulletParagraph(line, bulletNumberId));
+                }
             }
 
-            body.Append(table);
             main.Document = new W.Document(body);
-
             AppendDocumentControlFooter(main, green);
         }
 
@@ -295,8 +296,258 @@ internal static class OpenXmlReportBuilder
     }
 
     /// <summary>
+    /// Sets Segoe UI as the document default.
+    ///
+    /// Named explicitly rather than left to Word's default, which differs by version — Calibri on
+    /// older installs, Aptos on newer ones — so the same report would look different depending on
+    /// who opened it. Segoe UI is present on every Windows machine.
+    /// </summary>
+    private static void AppendDocumentDefaults(MainDocumentPart main)
+    {
+        var stylesPart = main.AddNewPart<StyleDefinitionsPart>();
+
+        stylesPart.Styles = new W.Styles(
+            new W.DocDefaults(
+                new W.RunPropertiesDefault(
+                    new W.RunPropertiesBaseStyle(
+                        new W.RunFonts { Ascii = "Segoe UI", HighAnsi = "Segoe UI", ComplexScript = "Segoe UI" },
+                        new W.Color { Val = BodyInk },
+                        new W.FontSize { Val = BodyHalfPoints.ToString() })),
+                new W.ParagraphPropertiesDefault(
+                    new W.ParagraphPropertiesBaseStyle(
+                        // Space after each paragraph and slightly open leading. The template had
+                        // neither, which is the largest single cause of it reading as cramped.
+                        new W.SpacingBetweenLines
+                        {
+                            After = "80",
+                            Line = "276",
+                            LineRule = W.LineSpacingRuleValues.Auto,
+                        }))));
+
+        stylesPart.Styles.Save();
+    }
+
+    /// <summary>
+    /// Defines the bullet used by the six sections, with a hanging indent so a wrapped line sits
+    /// under the text rather than under the bullet.
+    /// </summary>
+    private static int AppendBulletNumbering(MainDocumentPart main)
+    {
+        const int abstractId = 40;
+        const int numberId = 41;
+
+        var numberingPart = main.AddNewPart<NumberingDefinitionsPart>();
+
+        var level = new W.Level(
+            new W.StartNumberingValue { Val = 1 },
+            new W.NumberingFormat { Val = W.NumberFormatValues.Bullet },
+            new W.LevelText { Val = "•" },
+            new W.LevelJustification { Val = W.LevelJustificationValues.Left },
+            new W.PreviousParagraphProperties(
+                new W.Indentation { Left = "284", Hanging = "170" }),
+            new W.NumberingSymbolRunProperties(
+                new W.RunFonts { Ascii = "Segoe UI", HighAnsi = "Segoe UI" }))
+        { LevelIndex = 0 };
+
+        numberingPart.Numbering = new W.Numbering(
+            new W.AbstractNum(level) { AbstractNumberId = abstractId },
+            new W.NumberingInstance(
+                new W.AbstractNumId { Val = abstractId })
+            { NumberID = numberId });
+
+        numberingPart.Numbering.Save();
+        return numberId;
+    }
+
+    /// <summary>
+    /// The purple band carrying the service and the report name.
+    ///
+    /// A single-cell shaded table rather than a shaded paragraph, because a paragraph's shading
+    /// stops at the text and a table cell can be given real padding on all four sides.
+    /// </summary>
+    private static W.Table HeaderBand(CommitteeReportDto report, string purple)
+    {
+        var cell = new W.TableCell(
+            new W.TableCellProperties(
+                new W.TableCellWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                new W.Shading { Val = W.ShadingPatternValues.Clear, Color = "auto", Fill = Rgb(purple) },
+                new W.TableCellMargin(
+                    new W.TopMargin { Width = "260", Type = W.TableWidthUnitValues.Dxa },
+                    new W.LeftMargin { Width = "280", Type = W.TableWidthUnitValues.Dxa },
+                    new W.BottomMargin { Width = "240", Type = W.TableWidthUnitValues.Dxa },
+                    new W.RightMargin { Width = "280", Type = W.TableWidthUnitValues.Dxa })),
+            StyledParagraph(
+                "Infrastructure Delivery · Programme Governance",
+                16, "FFFFFF", bold: true, caps: true, letterSpacing: 30, spaceAfter: 40),
+            StyledParagraph(
+                "Programme/Project Status Report",
+                38, "FFFFFF", bold: true, spaceAfter: 0));
+
+        return new W.Table(
+            new W.TableProperties(
+                new W.TableWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                NoBorders()),
+            new W.TableGrid(new W.GridColumn { Width = ContentWidth.ToString() }),
+            new W.TableRow(cell));
+    }
+
+    /// <summary>
+    /// The six header facts as three columns of stacked label-over-value, with no cell borders at
+    /// all and one hairline beneath the block.
+    /// </summary>
+    private static W.Table FactsTable(CommitteeReportDto report, string green)
+    {
+        var column = ContentWidth / 3;
+
+        var budget = report.ApprovedBudget > 0
+            ? report.ApprovedBudget.ToString("C2", Culture)
+            : string.Empty;
+
+        var facts = new (string Label, string Value)[]
+        {
+            ("Project / Programme", report.ProjectName),
+            ("Project ID Ref", report.ProjectRef),
+            ("Report Date", FormatReportDate(report)),
+            ("Project Sponsor", report.SponsorName ?? string.Empty),
+            ("Project Manager", report.ProjectManagerName ?? string.Empty),
+            ("Budget", budget),
+        };
+
+        var table = new W.Table(
+            new W.TableProperties(
+                new W.TableWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                NoBorders(),
+                new W.TableCellMarginDefault(
+                    new W.TopMargin { Width = "120", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellLeftMargin { Width = 0, Type = W.TableWidthValues.Dxa },
+                    new W.BottomMargin { Width = "220", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellRightMargin { Width = 220, Type = W.TableWidthValues.Dxa })),
+            new W.TableGrid(
+                new W.GridColumn { Width = column.ToString() },
+                new W.GridColumn { Width = column.ToString() },
+                new W.GridColumn { Width = column.ToString() }));
+
+        foreach (var row in facts.Chunk(3))
+        {
+            var tableRow = new W.TableRow();
+
+            foreach (var (label, value) in row)
+            {
+                tableRow.Append(new W.TableCell(
+                    new W.TableCellProperties(
+                        new W.TableCellWidth { Width = column.ToString(), Type = W.TableWidthUnitValues.Dxa }),
+                    // Label small, spaced and grey; value larger and bold. The eye should land on
+                    // the answer, not the question.
+                    StyledParagraph(label, 15, MutedInk, bold: true, caps: true, letterSpacing: 22, spaceAfter: 20),
+                    StyledParagraph(
+                        string.IsNullOrWhiteSpace(value) ? " " : value,
+                        22, BodyInk, bold: true, spaceAfter: 0)));
+            }
+
+            table.Append(tableRow);
+        }
+
+        return table;
+    }
+
+    /// <summary>A section heading: green, spaced small caps, with a hairline above it.</summary>
+    private static W.Paragraph SectionHeading(string heading, string green, bool rule)
+    {
+        var paragraph = StyledParagraph(
+            heading, 17, Rgb(green), bold: true, caps: true, letterSpacing: 24,
+            spaceBefore: rule ? 280 : 200, spaceAfter: 100);
+
+        if (rule)
+        {
+            var properties = paragraph.GetFirstChild<W.ParagraphProperties>()!;
+
+            // pBdr comes before spacing in the schema's ordering for w:pPr — inserted first rather
+            // than appended, since StyledParagraph has already added spacing.
+            properties.InsertAt(
+                new W.ParagraphBorders(
+                    new W.TopBorder
+                    {
+                        Val = W.BorderValues.Single,
+                        Size = 4,
+                        Color = RuleGrey,
+                        Space = 8,
+                    }),
+                0);
+        }
+
+        return paragraph;
+    }
+
+    private static W.Paragraph BulletParagraph(string text, int numberId)
+    {
+        var properties = new W.ParagraphProperties(
+            new W.NumberingProperties(
+                new W.NumberingLevelReference { Val = 0 },
+                new W.NumberingId { Val = numberId }),
+            new W.SpacingBetweenLines { After = "60", Line = "264", LineRule = W.LineSpacingRuleValues.Auto });
+
+        var run = new W.Run(
+            new W.RunProperties(
+                new W.Color { Val = BodyInk },
+                new W.FontSize { Val = BodyHalfPoints.ToString() }),
+            new W.Text(text) { Space = SpaceProcessingModeValues.Preserve });
+
+        return new W.Paragraph(properties, run);
+    }
+
+    private static W.Paragraph Spacer(int twips) =>
+        new(new W.ParagraphProperties(
+                new W.SpacingBetweenLines { After = twips.ToString(), Line = "20", LineRule = W.LineSpacingRuleValues.Exact }));
+
+    /// <summary>
+    /// A paragraph with the full run of styling the design uses.
+    ///
+    /// Both element orders here are schema-enforced and neither is obvious:
+    ///   w:pPr — pBdr, spacing, ind, jc, rPr
+    ///   w:rPr — rFonts, b, caps, color, spacing, sz
+    /// Getting either wrong produces a file Word declares corrupt rather than one that looks odd.
+    /// </summary>
+    private static W.Paragraph StyledParagraph(
+        string text,
+        int halfPoints,
+        string rgb,
+        bool bold = false,
+        bool caps = false,
+        int letterSpacing = 0,
+        int spaceBefore = 0,
+        int spaceAfter = 80)
+    {
+        var spacing = new W.SpacingBetweenLines { After = spaceAfter.ToString() };
+        if (spaceBefore > 0) spacing.Before = spaceBefore.ToString();
+
+        var paragraphProperties = new W.ParagraphProperties(spacing);
+
+        var runProperties = new W.RunProperties(
+            new W.RunFonts { Ascii = "Segoe UI", HighAnsi = "Segoe UI", ComplexScript = "Segoe UI" });
+
+        if (bold) runProperties.Append(new W.Bold());
+        if (caps) runProperties.Append(new W.Caps());
+        runProperties.Append(new W.Color { Val = rgb });
+        if (letterSpacing > 0) runProperties.Append(new W.Spacing { Val = letterSpacing });
+        runProperties.Append(new W.FontSize { Val = halfPoints.ToString() });
+
+        var run = new W.Run(runProperties, new W.Text(text) { Space = SpaceProcessingModeValues.Preserve });
+
+        return new W.Paragraph(paragraphProperties, run);
+    }
+
+    /// <summary>No borders at all — the default, stated explicitly so the intent is visible.</summary>
+    private static W.TableBorders NoBorders() => new(
+        new W.TopBorder { Val = W.BorderValues.None },
+        new W.LeftBorder { Val = W.BorderValues.None },
+        new W.BottomBorder { Val = W.BorderValues.None },
+        new W.RightBorder { Val = W.BorderValues.None },
+        new W.InsideHorizontalBorder { Val = W.BorderValues.None },
+        new W.InsideVerticalBorder { Val = W.BorderValues.None });
+
+    /// <summary>
     /// The report date as the template writes it. Blank rather than a placeholder when unset: an
-    /// empty cell reads as "not filled in yet", which is true, where a dash reads as a decision.
+    /// empty value reads as "not filled in yet", which is true, where a dash reads as a decision.
     /// </summary>
     private static string FormatReportDate(CommitteeReportDto report) =>
         report.ReportDate?.ToString("d MMMM yyyy", Culture)
@@ -304,68 +555,44 @@ internal static class OpenXmlReportBuilder
         ?? string.Empty;
 
     /// <summary>
-    /// One cell of the status report table. Multi-line content becomes one paragraph per line, so
-    /// a section typed as a list reads as a list.
-    /// </summary>
-    private static W.TableCell StatusCell(
-        string? text, int widthTwips, string purple, bool label, int gridSpan = 1)
-    {
-        // Order within tcPr is schema-enforced: tcW, then gridSpan, then shd. Getting this wrong
-        // produces a file Word declares corrupt rather than one that merely looks odd.
-        var properties = new W.TableCellProperties(
-            new W.TableCellWidth { Width = widthTwips.ToString(), Type = W.TableWidthUnitValues.Dxa });
-
-        if (gridSpan > 1) properties.Append(new W.GridSpan { Val = gridSpan });
-
-        if (label)
-        {
-            properties.Append(new W.Shading
-            {
-                Val = W.ShadingPatternValues.Clear,
-                Color = "auto",
-                // A light tint of the brand purple. The full colour behind bold text at this size
-                // fails contrast badly, and a status report is a document people read at length.
-                Fill = "EFECF5",
-            });
-        }
-
-        var cell = new W.TableCell(properties);
-        var lines = string.IsNullOrWhiteSpace(text) ? [string.Empty] : SplitLines(text!).ToArray();
-
-        // A cell must contain at least one paragraph; an empty cell produces a file Word reports
-        // as corrupt rather than one with a blank space in it.
-        if (lines.Length == 0) lines = [string.Empty];
-
-        foreach (var line in lines)
-        {
-            cell.Append(TextParagraph(line, 20, label ? Rgb(purple) : "000000", bold: label));
-        }
-
-        return cell;
-    }
-
-    /// <summary>
-    /// The controlled-document footer the council's template carries. Reproduced because it is
-    /// what makes the output a version of PD.01.25 rather than a lookalike.
+    /// The controlled-document footer, above a hairline.
+    ///
+    /// The council logo belongs here or in a strip above the band, and is not yet placed: the file
+    /// has not been supplied. Word embeds an image in a footer without difficulty, so this is an
+    /// insertion rather than a rearrangement when it arrives.
     /// </summary>
     private static void AppendDocumentControlFooter(MainDocumentPart main, string green)
     {
         var footerPart = main.AddNewPart<FooterPart>();
-        footerPart.Footer = new W.Footer(
-            TextParagraph(
-                "Doc No: PD.01.25    Issued by: Project Delivery    Date: Jun-17    Version: 01",
-                16,
-                Rgb(green)));
+
+        var paragraph = StyledParagraph(
+            "Doc No: PD.01.25      Issued by: Project Delivery      Date: Jun-17      Version: 01",
+            14, MutedInk, letterSpacing: 8, spaceAfter: 0);
+
+        paragraph.GetFirstChild<W.ParagraphProperties>()!.InsertAt(
+            new W.ParagraphBorders(
+                new W.TopBorder { Val = W.BorderValues.Single, Size = 4, Color = RuleGrey, Space = 6 }),
+            0);
+
+        footerPart.Footer = new W.Footer(paragraph);
         footerPart.Footer.Save();
 
         var footerId = main.GetIdOfPart(footerPart);
 
-        // sectPr goes last in the body, after all content. Word tolerates a great deal but not
-        // this: a section properties element among the paragraphs is a validation error.
+        // sectPr goes last in the body, after all content. A section properties element among the
+        // paragraphs is a validation error rather than something Word tolerates.
         main.Document.Body!.Append(new W.SectionProperties(
             new W.FooterReference { Type = W.HeaderFooterValues.Default, Id = footerId },
-            new W.PageSize { Width = 11906, Height = 16838 },
-            new W.PageMargin { Top = 851, Right = 851, Bottom = 851, Left = 851, Header = 709, Footer = 709 }));
+            new W.PageSize { Width = (uint)PageWidth, Height = (uint)PageHeight },
+            new W.PageMargin
+            {
+                Top = 851,
+                Right = (uint)SideMargin,
+                Bottom = 851,
+                Left = (uint)SideMargin,
+                Header = 567,
+                Footer = 454,
+            }));
 
         main.Document.Save();
     }
