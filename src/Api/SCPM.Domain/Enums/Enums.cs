@@ -225,3 +225,41 @@ public enum RoleName
     CommitteeOfficer,
     ReadOnlyUser
 }
+
+/// <summary>
+/// Why a milestone slipped, in the terms a construction programme is argued in.
+///
+/// These are causes, not blame. The distinction that matters contractually is not who was at
+/// fault but who carries the time risk — which is why the categories track the standard grounds
+/// an extension of time is claimed on rather than a tidier taxonomy.
+/// </summary>
+public enum DelayCauseCategory
+{
+    /// <summary>Weather beyond the contractual threshold — exceptionally adverse, not merely bad.</summary>
+    Weather,
+
+    /// <summary>Late, incomplete or changed design information.</summary>
+    DesignInformation,
+
+    /// <summary>A change instructed by the employer: a variation or a compensation event.</summary>
+    EmployerChange,
+
+    /// <summary>Planning, building warrant, statutory undertakers, road authority consent.</summary>
+    StatutoryApproval,
+
+    /// <summary>Ground conditions, contamination, archaeology — what the site turned out to be.</summary>
+    SiteConditions,
+
+    /// <summary>Contractor resourcing, sequencing, workmanship or subcontractor failure.</summary>
+    ContractorPerformance,
+
+    /// <summary>Supply chain: materials, plant, lead times.</summary>
+    Procurement,
+
+    /// <summary>
+    /// Anything the categories above do not cover. Deliberately last and deliberately vague: a
+    /// cause recorded as Other with a narrative is a better record than one forced into a category
+    /// that does not fit, which reads as precision that was never there.
+    /// </summary>
+    Other
+}

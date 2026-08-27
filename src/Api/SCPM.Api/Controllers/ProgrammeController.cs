@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SCPM.Application.ProgrammeManagement.Commands.CreateMilestone;
 using SCPM.Application.ProgrammeManagement.Commands.RebaselineProgramme;
+using SCPM.Application.ProgrammeManagement.Commands.RecordDelayCause;
 using SCPM.Application.ProgrammeManagement.Commands.UpdateMilestoneStatus;
 using SCPM.Application.ProgrammeManagement.Dtos;
+using SCPM.Application.ProgrammeManagement.Queries.GetDelayAnalysis;
 using SCPM.Application.ProgrammeManagement.Queries.GetMilestones;
 using SCPM.Application.ProgrammeManagement.Queries.GetProgrammeAgainstBaseline;
 using SCPM.Application.ProgrammeManagement.Queries.GetProgrammeBaselines;
@@ -43,6 +45,42 @@ public class ProgrammeController : ControllerBase
     {
         await _mediator.Send(new UpdateMilestoneStatusCommand(milestoneId, request.Status, request.ActualDate), ct);
         return NoContent();
+    }
+
+    /// <summary>
+    /// The project's slip set against what has been recorded to account for it. The figure worth
+    /// reading is the unattributed remainder — slip nobody has explained.
+    /// </summary>
+    [HttpGet("api/projects/{projectId:guid}/delay-analysis")]
+    public async Task<ActionResult<ProjectDelayAnalysisDto>> GetDelayAnalysis(Guid projectId, CancellationToken ct)
+        => Ok(await _mediator.Send(new GetDelayAnalysisQuery(projectId), ct));
+
+    public record RecordDelayCauseRequest(
+        int DelayDays,
+        DelayCauseCategory Category,
+        string Narrative,
+        Guid? ExtensionOfTimeId,
+        Guid? CompensationEventId);
+
+    /// <summary>
+    /// Records why part of a milestone slipped. `CanWrite`, not `CanApprove`: this is the contract
+    /// administrator's account of what happened, not a decision about what the project is measured
+    /// against.
+    /// </summary>
+    [HttpPost("api/milestones/{milestoneId:guid}/delay-causes")]
+    [Authorize(Policy = "CanWrite")]
+    public async Task<ActionResult<Guid>> RecordDelayCause(
+        Guid milestoneId, RecordDelayCauseRequest request, CancellationToken ct)
+    {
+        var id = await _mediator.Send(new RecordDelayCauseCommand(
+            milestoneId,
+            request.DelayDays,
+            request.Category,
+            request.Narrative,
+            request.ExtensionOfTimeId,
+            request.CompensationEventId), ct);
+
+        return Ok(id);
     }
 
     [HttpGet("api/projects/{projectId:guid}/baselines")]
