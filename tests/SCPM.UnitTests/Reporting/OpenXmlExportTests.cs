@@ -36,10 +36,17 @@ public class OpenXmlExportTests
         Status = "Draft",
         CreatedDate = DateTime.UtcNow,
         MeetingDate = new DateOnly(2026, 9, 15),
-        ExecutiveSummary = "First line of the summary.\nSecond line, after a newline.",
-        FinanceCommentary = "Approved budget: £25,000,000. Current forecast: £26,500,000.",
-        RiskCommentary = "3 open risks, highest score 16/25.",
-        Recommendations = "Members are asked to note the report.",
+        Sections =
+        [
+            new() { Key = "executive-summary", Heading = "Executive Summary",
+                    Content = "First line of the summary.\nSecond line, after a newline." },
+            new() { Key = "finance-commentary", Heading = "Finance",
+                    Content = "Approved budget: £25,000,000. Current forecast: £26,500,000." },
+            new() { Key = "risk-commentary", Heading = "Risk",
+                    Content = "3 open risks, highest score 16/25." },
+            new() { Key = "recommendations", Heading = "Recommendations",
+                    Content = "Members are asked to note the report." },
+        ],
     };
 
     private static IReadOnlyList<ValidationErrorInfo> Validate(OpenXmlPackage package) =>
@@ -79,7 +86,7 @@ public class OpenXmlExportTests
         text.Should().Contain("Executive Summary");
         text.Should().Contain("First line of the summary.");
         text.Should().Contain("Second line, after a newline.");
-        text.Should().Contain(report.Recommendations!);
+        text.Should().Contain(report.Sections.Single(x => x.Key == "recommendations").Content!);
 
         // Sections with no content are skipped rather than emitted as empty headings.
         text.Should().NotContain("Sustainability");

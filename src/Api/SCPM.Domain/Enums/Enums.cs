@@ -6,7 +6,17 @@ public enum CommitteeReportType
     CabinetReport,
     BoardReport,
     CapitalProgrammeReport,
-    DecisionPaper
+    DecisionPaper,
+
+    /// <summary>
+    /// The Infrastructure Delivery status report (council template PD.01.25). Its sections differ
+    /// entirely from the committee-paper set — see ReportSections.
+    ///
+    /// Appended rather than inserted in order: these values are persisted as strings, so position
+    /// does not matter to the database, but keeping additions at the end means a reader comparing
+    /// this enum against older code sees an addition rather than a reshuffle.
+    /// </summary>
+    StatusReport
 }
 
 public enum CommitteeReportStatus

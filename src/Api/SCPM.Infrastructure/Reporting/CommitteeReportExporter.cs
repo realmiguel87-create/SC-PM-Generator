@@ -6,6 +6,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SCPM.Application.Common.Interfaces;
 using SCPM.Application.Reporting.Dtos;
+using SCPM.Domain.Enums;
 
 namespace SCPM.Infrastructure.Reporting;
 
@@ -20,7 +21,10 @@ namespace SCPM.Infrastructure.Reporting;
 /// </summary>
 public class CommitteeReportExporter : ICommitteeReportExporter
 {
+    // Taken from the council's logo, confirmed by the service. The green is the second brand
+    // colour and carries the standing text — headings and rules use the purple.
     private static readonly string StirlingPurple = "#675A8F";
+    private static readonly string StirlingGreen = "#4F8377";
     private static readonly string TextSecondary = "#5C6770";
 
     static CommitteeReportExporter()
@@ -38,25 +42,15 @@ public class CommitteeReportExporter : ICommitteeReportExporter
             ReportExportFormat.Xlsx => ExportXlsx(report),
             ReportExportFormat.Csv => ExportCsv(report),
             ReportExportFormat.Json => ExportJson(report),
-            ReportExportFormat.Docx => OpenXmlReportBuilder.BuildDocx(report, Sections, StirlingPurple, TextSecondary),
-            ReportExportFormat.Pptx => OpenXmlReportBuilder.BuildPptx(report, Sections, StirlingPurple, TextSecondary),
+            // The status report has its own layout: it reproduces the council's controlled
+            // template PD.01.25 as a table, not as headings and paragraphs.
+            ReportExportFormat.Docx => report.ReportType == nameof(CommitteeReportType.StatusReport)
+                ? OpenXmlReportBuilder.BuildStatusReportDocx(report, report.Sections, StirlingPurple, StirlingGreen)
+                : OpenXmlReportBuilder.BuildDocx(report, report.Sections, StirlingPurple, TextSecondary),
+            ReportExportFormat.Pptx => OpenXmlReportBuilder.BuildPptx(report, report.Sections, StirlingPurple, TextSecondary),
             _ => throw new NotSupportedException($"Export format {format} is not supported.")
         });
     }
-
-    private static readonly (string Heading, Func<CommitteeReportDto, string?> Select)[] Sections =
-    [
-        ("Executive Summary", r => r.ExecutiveSummary),
-        ("Background", r => r.Background),
-        ("Current Position", r => r.CurrentPosition),
-        ("Finance", r => r.FinanceCommentary),
-        ("Programme", r => r.ProgrammeCommentary),
-        ("Risk", r => r.RiskCommentary),
-        ("Stakeholders", r => r.StakeholderCommentary),
-        ("Sustainability", r => r.SustainabilityCommentary),
-        ("Equality Impact", r => r.EqualityImpactCommentary),
-        ("Recommendations", r => r.Recommendations),
-    ];
 
     private byte[] ExportPdf(CommitteeReportDto report)
     {
@@ -75,18 +69,30 @@ public class CommitteeReportExporter : ICommitteeReportExporter
                     col.Item().Text($"{report.ReportType} · {report.ProjectRef} — {report.ProjectName}").FontColor(TextSecondary);
                     if (report.MeetingDate.HasValue)
                         col.Item().Text($"Meeting date: {report.MeetingDate:d MMMM yyyy}").FontColor(TextSecondary);
+                    if (report.ReportDate.HasValue)
+                        col.Item().Text($"Report date: {report.ReportDate:d MMMM yyyy}").FontColor(TextSecondary);
+
+                    // Sponsor, manager, reference, budget — the status report's header block.
+                    foreach (var (label, value) in OpenXmlReportBuilder.HeaderFacts(report))
+                        col.Item().Text($"{label}: {value}").FontColor(TextSecondary);
+
                     col.Item().PaddingTop(8).LineHorizontal(1).LineColor(StirlingPurple);
                 });
 
                 page.Content().PaddingTop(15).Column(col =>
                 {
-                    foreach (var (heading, select) in Sections)
+                    foreach (var section in report.Sections)
                     {
-                        var value = select(report);
-                        if (string.IsNullOrWhiteSpace(value)) continue;
+                        if (string.IsNullOrWhiteSpace(section.Content)) continue;
 
-                        col.Item().PaddingTop(10).Text(heading).FontColor(StirlingPurple).Bold().FontSize(12);
-                        col.Item().PaddingTop(2).Text(value);
+                        col.Item().PaddingTop(10).Text(section.Heading)
+                            .FontColor(StirlingPurple).Bold().FontSize(12);
+
+                        // One paragraph per line: the council's template uses bullet lists
+                        // throughout, and collapsing a five-item list into one run of prose is the
+                        // difference between a document someone scans and one they read twice.
+                        foreach (var line in OpenXmlReportBuilder.SplitLines(section.Content))
+                            col.Item().PaddingTop(2).Text(line);
                     }
                 });
 
@@ -114,14 +120,13 @@ public class CommitteeReportExporter : ICommitteeReportExporter
         sheet.Cell(2, 1).Value = $"{report.ReportType} · {report.ProjectRef} — {report.ProjectName}";
 
         var row = 4;
-        foreach (var (heading, select) in Sections)
+        foreach (var section in report.Sections)
         {
-            var value = select(report);
-            if (string.IsNullOrWhiteSpace(value)) continue;
+            if (string.IsNullOrWhiteSpace(section.Content)) continue;
 
-            sheet.Cell(row, 1).Value = heading;
+            sheet.Cell(row, 1).Value = section.Heading;
             sheet.Cell(row, 1).Style.Font.Bold = true;
-            sheet.Cell(row, 2).Value = value;
+            sheet.Cell(row, 2).Value = section.Content;
             sheet.Cell(row, 2).Style.Alignment.WrapText = true;
             row++;
         }
@@ -141,11 +146,10 @@ public class CommitteeReportExporter : ICommitteeReportExporter
         sb.AppendLine($"{CsvEscape("Title")},{CsvEscape(report.Title)}");
         sb.AppendLine($"{CsvEscape("Project")},{CsvEscape($"{report.ProjectRef} — {report.ProjectName}")}");
 
-        foreach (var (heading, select) in Sections)
+        foreach (var section in report.Sections)
         {
-            var value = select(report);
-            if (string.IsNullOrWhiteSpace(value)) continue;
-            sb.AppendLine($"{CsvEscape(heading)},{CsvEscape(value)}");
+            if (string.IsNullOrWhiteSpace(section.Content)) continue;
+            sb.AppendLine($"{CsvEscape(section.Heading)},{CsvEscape(section.Content)}");
         }
 
         return Encoding.UTF8.GetBytes(sb.ToString());

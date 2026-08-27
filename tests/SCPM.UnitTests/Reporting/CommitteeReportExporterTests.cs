@@ -24,10 +24,17 @@ public class CommitteeReportExporterTests
         Title = "Monthly Progress Report",
         Status = "Draft",
         CreatedDate = DateTime.UtcNow,
-        ExecutiveSummary = "This report provides an update on the Stirling Community Campus project.",
-        FinanceCommentary = "Approved budget: £25,000,000. Current forecast: £26,500,000.",
-        RiskCommentary = "3 open risks, highest score 16/25.",
-        Recommendations = "Members are asked to note the report.",
+        Sections =
+        [
+            new() { Key = "executive-summary", Heading = "Executive Summary",
+                    Content = "This report provides an update on the Stirling Community Campus project." },
+            new() { Key = "finance-commentary", Heading = "Finance",
+                    Content = "Approved budget: £25,000,000. Current forecast: £26,500,000." },
+            new() { Key = "risk-commentary", Heading = "Risk",
+                    Content = "3 open risks, highest score 16/25." },
+            new() { Key = "recommendations", Heading = "Recommendations",
+                    Content = "Members are asked to note the report." },
+        ],
     };
 
     [Fact]
@@ -72,6 +79,7 @@ public class CommitteeReportExporterTests
 
         roundTripped.Should().NotBeNull();
         roundTripped!.Title.Should().Be(report.Title);
-        roundTripped.FinanceCommentary.Should().Be(report.FinanceCommentary);
+        roundTripped.Sections.Single(s => s.Key == "finance-commentary").Content
+            .Should().Be(report.Sections.Single(s => s.Key == "finance-commentary").Content);
     }
 }

@@ -1,4 +1,10 @@
-export type CommitteeReportType = "CommitteeReport" | "CabinetReport" | "BoardReport" | "CapitalProgrammeReport" | "DecisionPaper";
+export type CommitteeReportType =
+  | "StatusReport"
+  | "CommitteeReport"
+  | "CabinetReport"
+  | "BoardReport"
+  | "CapitalProgrammeReport"
+  | "DecisionPaper";
 export type CommitteeReportStatus = "Draft" | "Approved" | "Submitted";
 export type ReportExportFormat = "Pdf" | "Xlsx" | "Csv" | "Json" | "Docx" | "Pptx";
 
@@ -13,19 +19,34 @@ export interface CommitteeReportListItem {
   status: CommitteeReportStatus;
 }
 
+/** One section of a report: a stable key, the heading to show, and what it says. */
+export interface ReportSection {
+  key: string;
+  heading: string;
+  content: string | null;
+}
+
 export interface CommitteeReport extends CommitteeReportListItem {
   projectId: string;
   createdDate: string;
-  executiveSummary: string;
-  background: string | null;
-  currentPosition: string | null;
-  financeCommentary: string | null;
-  programmeCommentary: string | null;
-  riskCommentary: string | null;
-  stakeholderCommentary: string | null;
-  sustainabilityCommentary: string | null;
-  equalityImpactCommentary: string | null;
-  recommendations: string | null;
+
+  /** The date the position is reported as at, as distinct from a committee meeting date. */
+  reportDate: string | null;
+
+  /** Header-block facts, read from the project rather than typed into the report. */
+  sponsorName: string | null;
+  projectManagerName: string | null;
+  approvedBudget: number;
+
+  /**
+   * The report's narrative, in the order its type defines, headings included.
+   *
+   * Sent by the server rather than hardcoded here. A status report and a committee paper share no
+   * sections at all, and a list in the client would have to be kept in step with the server's by
+   * hand — which is exactly the kind of duplication that goes stale and then renders a report with
+   * the wrong headings on it.
+   */
+  sections: ReportSection[];
 }
 
 export interface SnapshotComparison {
@@ -208,15 +229,3 @@ export interface SnapshotItemComparison {
   hasChanges: boolean;
 }
 
-export const REPORT_SECTIONS: { key: keyof CommitteeReport; label: string }[] = [
-  { key: "executiveSummary", label: "Executive Summary" },
-  { key: "background", label: "Background" },
-  { key: "currentPosition", label: "Current Position" },
-  { key: "financeCommentary", label: "Finance" },
-  { key: "programmeCommentary", label: "Programme" },
-  { key: "riskCommentary", label: "Risk" },
-  { key: "stakeholderCommentary", label: "Stakeholders" },
-  { key: "sustainabilityCommentary", label: "Sustainability" },
-  { key: "equalityImpactCommentary", label: "Equality Impact" },
-  { key: "recommendations", label: "Recommendations" },
-];

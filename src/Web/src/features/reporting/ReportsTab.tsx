@@ -4,9 +4,16 @@ import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 import { exportReportUrl, useCommitteeReport, useCommitteeReports, useCreateCommitteeReport, useSubmitCommitteeReport, useUpdateCommitteeReport } from "./api";
-import { REPORT_SECTIONS, type CommitteeReport, type CommitteeReportType, type ReportExportFormat } from "./types";
+import type { CommitteeReport, CommitteeReportType, ReportExportFormat } from "./types";
 
-const REPORT_TYPES: CommitteeReportType[] = ["CommitteeReport", "CabinetReport", "BoardReport", "CapitalProgrammeReport", "DecisionPaper"];
+const REPORT_TYPES: CommitteeReportType[] = [
+  "StatusReport",
+  "CommitteeReport",
+  "CabinetReport",
+  "BoardReport",
+  "CapitalProgrammeReport",
+  "DecisionPaper",
+];
 // Order is deliberate: the two formats a committee officer actually edits and presents come
 // first, then the data formats. Must stay in step with ReportExportFormat on the API.
 const EXPORT_FORMATS: ReportExportFormat[] = ["Pdf", "Docx", "Pptx", "Xlsx", "Csv", "Json"];
@@ -32,15 +39,23 @@ function ReportEditor({ projectId, reportId }: { projectId: string; reportId: st
         <Badge variant={statusToBadgeVariant(current.status)}>{current.status}</Badge>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 pt-0">
-        {REPORT_SECTIONS.map(({ key, label }) => (
-          <label key={key} className="flex flex-col gap-1 text-xs text-text-secondary">
-            {label}
+        {/* Headings come from the server, so a new report type needs no change here. */}
+        {current.sections.map((section) => (
+          <label key={section.key} className="flex flex-col gap-1 text-xs text-text-secondary">
+            {section.heading}
             <textarea
-              rows={label === "Executive Summary" ? 3 : 2}
+              rows={4}
               disabled={!isEditable}
               className="rounded-md border border-border bg-transparent px-2 py-1.5 text-sm text-text-primary disabled:opacity-70"
-              value={(current[key] as string) ?? ""}
-              onChange={(e) => setDraft({ ...current, [key]: e.target.value })}
+              value={section.content ?? ""}
+              onChange={(e) =>
+                setDraft({
+                  ...current,
+                  sections: current.sections.map((s) =>
+                    s.key === section.key ? { ...s, content: e.target.value } : s,
+                  ),
+                })
+              }
             />
           </label>
         ))}
@@ -51,7 +66,18 @@ function ReportEditor({ projectId, reportId }: { projectId: string; reportId: st
               size="sm"
               variant="secondary"
               disabled={!draft || update.isPending}
-              onClick={() => draft && update.mutate(draft, { onSuccess: () => setDraft(null) })}
+              onClick={() =>
+                draft &&
+                update.mutate(
+                  {
+                    // Only the sections, not the whole document. The server treats an omitted
+                    // section as unchanged rather than as cleared.
+                    sections: draft.sections.map((s) => ({ key: s.key, content: s.content })),
+                    reportDate: draft.reportDate,
+                  },
+                  { onSuccess: () => setDraft(null) },
+                )
+              }
             >
               {update.isPending ? "Saving…" : "Save Draft"}
             </Button>
