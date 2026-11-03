@@ -29,7 +29,14 @@ namespace SCPM.UnitTests.Reporting;
 public class StatusReportExportTests
 {
     private const string Purple = "675A8F";
-    private const string Green = "4F8377";
+
+    /// <summary>
+    /// Deepened from the logo's #4F8377, which is ~4.2:1 against white — under the 4.5:1 minimum
+    /// at the size these documents set numerals and headings.
+    /// </summary>
+    private const string Green = "3D665C";
+
+    private const string BodyInk = "1F1B2A";
 
     private static CommitteeReportDto StatusReport() => new()
     {
@@ -108,60 +115,75 @@ public class StatusReportExportTests
     }
 
     [Fact]
-    public void Puts_the_report_name_in_a_purple_band()
+    public void Names_the_service_in_a_purple_strip_and_sets_the_title_below_it()
     {
         using var stream = new MemoryStream(Export(StatusReport()));
         using var document = Open(stream);
+        var body = document.MainDocumentPart!.Document.Body!;
 
-        var band = document.MainDocumentPart!.Document.Body!
-            .Descendants<W.Table>().First();
+        var strip = body.Descendants<W.Table>().First();
 
-        band.Descendants<W.Shading>().Single().Fill!.Value
-            .Should().Be(Purple, "the band is where the brand colour carries identity");
+        strip.Descendants<W.Shading>().Single().Fill!.Value
+            .Should().Be(Purple, "the strip is where the brand colour carries identity");
+        strip.InnerText.Should().Contain("Infrastructure Delivery");
 
-        band.InnerText.Should().Contain("Infrastructure Delivery");
-        band.InnerText.Should().Contain("Programme/Project Status Report");
+        // The title is deliberately NOT in the strip. A solid block carrying both the service and
+        // the report name gives the two equal weight, where the title is what a reader needs
+        // first — so the strip states the service in one line and the title takes the page's
+        // largest type on white. Folding it back into the strip is the obvious "tidy-up".
+        strip.InnerText.Should().NotContain("Programme/Project Status Report");
+
+        var title = body.Elements<W.Paragraph>()
+            .Single(p => p.InnerText == "Programme/Project Status Report");
+
+        title.Descendants<W.FontSize>().Single().Val!.Value.Should().Be("60");
+        title.Descendants<W.Color>().Single().Val!.Value.Should().Be(BodyInk);
     }
 
     [Fact]
-    public void Sets_section_headings_in_forest_green()
+    public void Sets_the_section_numerals_in_forest_green()
     {
         using var stream = new MemoryStream(Export(StatusReport()));
         using var document = Open(stream);
+        var body = document.MainDocumentPart!.Document.Body!;
 
-        var headings = document.MainDocumentPart!.Document.Body!
-            .Descendants<W.Paragraph>()
-            .Where(p => p.InnerText.StartsWith("Key Activities")
-                     || p.InnerText == "Issues"
-                     || p.InnerText == "Cost/Budget Position")
+        var numerals = body.Descendants<W.Paragraph>()
+            .Where(p => p.InnerText.Length == 2 && p.InnerText.All(char.IsDigit))
             .ToList();
 
-        headings.Should().HaveCount(3);
+        numerals.Should().HaveCount(6);
 
         // Each colour does one job: purple says whose document this is, green says where you are
-        // in it. Green appearing in two roles would mean it signalled neither.
-        headings.Should().OnlyContain(
+        // in it. Green on the numerals and near-black on the headings keeps the heading readable
+        // at body weight while the green still marks progress down the page.
+        numerals.Should().OnlyContain(
             p => p.Descendants<W.Color>().Any(c => c.Val! == Green));
-        headings.Should().OnlyContain(p => p.Descendants<W.Caps>().Any());
+
+        var heading = body.Descendants<W.Paragraph>().First(p => p.InnerText == "Issues");
+
+        heading.Descendants<W.Color>().Single().Val!.Value.Should().Be(BodyInk);
+        heading.Descendants<W.Caps>().Should().BeEmpty("headings read as sentences, not labels");
     }
 
     [Fact]
-    public void Separates_sections_with_a_rule_but_not_the_first()
+    public void Separates_sections_by_number_rather_than_by_rule()
     {
         using var stream = new MemoryStream(Export(StatusReport()));
         using var document = Open(stream);
 
         var body = document.MainDocumentPart!.Document.Body!;
 
-        var firstHeading = body.Descendants<W.Paragraph>()
-            .First(p => p.InnerText.StartsWith("Key Activities"));
-        var secondHeading = body.Descendants<W.Paragraph>()
-            .First(p => p.InnerText == "Planned Activities");
+        // A hairline between every section plus a numeral for each would be two separators doing
+        // one job. The numerals won, so no paragraph border should remain anywhere in the body —
+        // the footer's rule lives in its own part, not here.
+        body.Descendants<W.ParagraphBorders>().Should().BeEmpty();
 
-        // A rule above the first section would sit directly under the facts block, which already
-        // has one — two hairlines a few millimetres apart reads as a mistake.
-        firstHeading.Descendants<W.ParagraphBorders>().Should().BeEmpty();
-        secondHeading.Descendants<W.ParagraphBorders>().Should().ContainSingle();
+        // Two digits throughout and in document order. A document of six sections numbered 1..6
+        // and one of twelve numbered 01..12 would not look like the same family.
+        body.Descendants<W.Paragraph>()
+            .Select(p => p.InnerText)
+            .Where(t => t.Length == 2 && t.All(char.IsDigit))
+            .Should().ContainInOrder("01", "02", "03", "04", "05", "06");
     }
 
     [Fact]

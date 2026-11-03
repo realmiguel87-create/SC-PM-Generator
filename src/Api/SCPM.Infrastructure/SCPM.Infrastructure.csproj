@@ -37,4 +37,13 @@
     <ProjectReference Include="..\SCPM.Application\SCPM.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The report builder and the logo loader are internal: they are implementation detail of
+         CommitteeReportExporter, not API. The Open XML image path cannot be exercised through the
+         public surface, though, and shipping it unverified is the worse trade. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SCPM.UnitTests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 </Project>

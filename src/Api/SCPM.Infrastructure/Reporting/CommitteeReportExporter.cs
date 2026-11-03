@@ -25,7 +25,11 @@ public class CommitteeReportExporter : ICommitteeReportExporter
     // Taken from the council's logo, confirmed by the service. The green is the second brand
     // colour and carries the standing text — headings and rules use the purple.
     private static readonly string StirlingPurple = "#675A8F";
-    private static readonly string StirlingGreen = "#4F8377";
+    // Deepened from the logo's #4F8377, which gives ~4.2:1 against white — below the 4.5:1
+    // minimum at the size these documents set headings and numerals. #3D665C is ~6.2:1 and still
+    // reads as the same green. The council has accessibility duties under the Equality Act, so
+    // this is a compliance point rather than a preference.
+    private static readonly string StirlingGreen = "#3D665C";
     private static readonly string TextSecondary = "#5C6770";
 
     static CommitteeReportExporter()

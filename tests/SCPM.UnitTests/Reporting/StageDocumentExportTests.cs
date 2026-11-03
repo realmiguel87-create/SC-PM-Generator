@@ -30,7 +30,8 @@ namespace SCPM.UnitTests.Reporting;
 public class StageDocumentExportTests
 {
     private const string Purple = "675A8F";
-    private const string Green = "4F8377";
+    private const string Green = "3D665C";
+    private const string PanelTint = "F4F2F8";
 
     private static CommitteeReportDto Document(CommitteeReportType type, bool filled = false)
     {
@@ -195,12 +196,19 @@ public class StageDocumentExportTests
             .Styles!.Descendants<W.RunFonts>().First()
             .Ascii!.Value.Should().Be("Segoe UI");
 
-        var headings = body.Descendants<W.Paragraph>()
-            .Where(p => p.Descendants<W.Caps>().Any() && p.Descendants<W.ParagraphBorders>().Any())
+        var definition = StageDocuments.Find(type)!;
+
+        var numerals = body.Descendants<W.Paragraph>()
+            .Where(p => p.InnerText.Length == 2 && p.InnerText.All(char.IsDigit))
             .ToList();
 
-        headings.Should().NotBeEmpty();
-        headings.Should().OnlyContain(p => p.Descendants<W.Color>().Any(c => c.Val! == Green));
+        numerals.Should().HaveCount(definition.Sections.Count);
+        numerals.Should().OnlyContain(p => p.Descendants<W.Color>().Any(c => c.Val! == Green));
+
+        // The facts sit in a tinted panel, which is the second shaded element on the page after
+        // the strip. A panel that lost its tint would leave the facts floating.
+        body.Descendants<W.Shading>().Select(sh => sh.Fill!.Value)
+            .Should().Contain(PanelTint);
     }
 
     [Theory]

@@ -4,6 +4,8 @@ using SCPM.Application.Reporting.Dtos;
 using SCPM.Application.Reporting.Export;
 using SCPM.Domain.Common;
 using D = DocumentFormat.OpenXml.Drawing;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 using P = DocumentFormat.OpenXml.Presentation;
 using W = DocumentFormat.OpenXml.Wordprocessing;
 
@@ -224,6 +226,12 @@ internal static class OpenXmlReportBuilder
     private const string BodyInk = "1F1B2A";
 
     /// <summary>
+    /// The tint behind the facts panel. Light enough that bold near-black text on it still clears
+    /// the contrast threshold comfortably, and that it survives being photocopied in grayscale.
+    /// </summary>
+    private const string PanelTint = "F4F2F8";
+
+    /// <summary>
     /// The Infrastructure Delivery status report.
     ///
     /// Same headings, same information and same document control as the council's template
@@ -250,11 +258,13 @@ internal static class OpenXmlReportBuilder
         CommitteeReportDto report,
         IReadOnlyList<ReportSectionDto> sections,
         string purple,
-        string green) =>
+        string green,
+        byte[]? logo = null) =>
         BuildBrandedDocx(
             sections,
             purple,
             green,
+            logo,
             eyebrow: "Infrastructure Delivery · Programme Governance",
             title: "Programme/Project Status Report",
             bandDate: null,
@@ -278,11 +288,13 @@ internal static class OpenXmlReportBuilder
         DocumentDefinition definition,
         IReadOnlyList<ReportSectionDto> sections,
         string purple,
-        string green) =>
+        string green,
+        byte[]? logo = null) =>
         BuildBrandedDocx(
             sections,
             purple,
             green,
+            logo,
             eyebrow: definition.Eyebrow,
             title: definition.Title,
             bandDate: FormatReportDate(report),
@@ -298,6 +310,7 @@ internal static class OpenXmlReportBuilder
         IReadOnlyList<ReportSectionDto> sections,
         string purple,
         string green,
+        byte[]? logo,
         string eyebrow,
         string title,
         string? bandDate,
@@ -314,42 +327,18 @@ internal static class OpenXmlReportBuilder
 
             var body = new W.Body();
 
-            body.Append(HeaderBand(eyebrow, title, bandDate, purple));
-            body.Append(Spacer(120));
-            body.Append(FactsTable(facts, green));
+            var hasDate = !string.IsNullOrWhiteSpace(bandDate);
 
-            var first = true;
-            foreach (var section in sections)
-            {
-                // A top border on the heading is the separator. Rules between sections rather than
-                // around every cell — the single change that does most of the work.
-                body.Append(SectionHeading(section.Heading, green, rule: !first));
-                first = false;
-
-                if (!string.IsNullOrWhiteSpace(section.Content))
-                {
-                    foreach (var line in SplitLines(section.Content))
-                    {
-                        body.Append(BulletParagraph(line, bulletNumberId));
-                    }
-
-                    continue;
-                }
-
-                // Nothing written yet. The heading stays regardless — on a controlled template
-                // every heading is expected to be present, and an absent one reads as a template
-                // someone has edited rather than a section nobody has filled in.
-                //
-                // Where the document type supplies guidance, it goes here: grey and italic, so it
-                // is visibly an instruction rather than content, and it is replaced the moment
-                // anything is written.
-                body.Append(string.IsNullOrWhiteSpace(section.Prompt)
-                    ? Spacer(80)
-                    : PromptParagraph(section.Prompt));
-            }
+            body.Append(EyebrowStrip(eyebrow, purple));
+            body.Append(TitleParagraph(title, hasDate));
+            if (hasDate) body.Append(DateParagraph(bandDate!));
+            body.Append(FactsPanel(facts));
+            body.Append(Spacer(360));
+            body.Append(SectionsTable(sections, green, bulletNumberId));
 
             main.Document = new W.Document(body);
-            AppendDocumentControlFooter(main, footer, green);
+            // The embedded logo unless a caller supplied one — which only a test does.
+            AppendDocumentControlFooter(main, footer, purple, logo ?? CouncilLogo.Png);
         }
 
         return stream.ToArray();
@@ -455,48 +444,49 @@ internal static class OpenXmlReportBuilder
     /// A single-cell shaded table rather than a shaded paragraph, because a paragraph's shading
     /// stops at the text and a table cell can be given real padding on all four sides.
     /// </summary>
-    private static W.Table HeaderBand(string eyebrow, string title, string? date, string purple)
-    {
-        var cell = new W.TableCell(
-            new W.TableCellProperties(
-                new W.TableCellWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
-                new W.Shading { Val = W.ShadingPatternValues.Clear, Color = "auto", Fill = Rgb(purple) },
-                new W.TableCellMargin(
-                    new W.TopMargin { Width = "260", Type = W.TableWidthUnitValues.Dxa },
-                    new W.LeftMargin { Width = "280", Type = W.TableWidthUnitValues.Dxa },
-                    new W.BottomMargin { Width = "240", Type = W.TableWidthUnitValues.Dxa },
-                    new W.RightMargin { Width = "280", Type = W.TableWidthUnitValues.Dxa })),
-            StyledParagraph(
-                eyebrow,
-                16, "FFFFFF", bold: true, caps: true, letterSpacing: 30, spaceAfter: 40),
-            // The title closes the band when there is no date, so it takes the zero bottom spacing
-            // in that case and gives it up to the date line when there is one.
-            StyledParagraph(
-                title,
-                38, "FFFFFF", bold: true, spaceAfter: string.IsNullOrWhiteSpace(date) ? 0 : 60));
-
-        if (!string.IsNullOrWhiteSpace(date))
-        {
-            // On a document issued once, the date belongs with the title rather than among facts
-            // about the project. A blank template has no date and simply omits the line, rather
-            // than printing a label with nothing after it.
-            cell.Append(StyledParagraph(
-                date, 17, "FFFFFF", caps: true, letterSpacing: 20, spaceAfter: 0));
-        }
-
-        return new W.Table(
+    private static W.Table EyebrowStrip(string eyebrow, string purple) =>
+        new(
             new W.TableProperties(
                 new W.TableWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
                 NoBorders()),
             new W.TableGrid(new W.GridColumn { Width = ContentWidth.ToString() }),
-            new W.TableRow(cell));
-    }
+            new W.TableRow(new W.TableCell(
+                new W.TableCellProperties(
+                    new W.TableCellWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                    new W.Shading { Val = W.ShadingPatternValues.Clear, Color = "auto", Fill = Rgb(purple) },
+                    new W.TableCellMargin(
+                        new W.TopMargin { Width = "135", Type = W.TableWidthUnitValues.Dxa },
+                        new W.LeftMargin { Width = "300", Type = W.TableWidthUnitValues.Dxa },
+                        new W.BottomMargin { Width = "135", Type = W.TableWidthUnitValues.Dxa },
+                        new W.RightMargin { Width = "300", Type = W.TableWidthUnitValues.Dxa })),
+                StyledParagraph(
+                    eyebrow, 15, "FFFFFF", bold: true, caps: true, letterSpacing: 26, spaceAfter: 0))));
 
     /// <summary>
-    /// The six header facts as three columns of stacked label-over-value, with no cell borders at
-    /// all and one hairline beneath the block.
+    /// The document title, below the strip rather than inside it.
+    ///
+    /// This is the change that separates the chosen direction from the band the status report had:
+    /// a solid block carrying both the service and the title gives the two equal weight, where the
+    /// title is the thing a reader needs first. The strip now says which service, in one line, and
+    /// the title gets the page's largest type on white.
     /// </summary>
-    private static W.Table FactsTable(IReadOnlyList<(string Label, string Value)> facts, string green)
+    private static W.Paragraph TitleParagraph(string title, bool followedByDate) =>
+        StyledParagraph(
+            title, 60, BodyInk, bold: true,
+            spaceBefore: 330, spaceAfter: followedByDate ? 60 : 330);
+
+    /// <summary>
+    /// The date under the title, where a document issued once states when. The status report
+    /// carries its date among the facts instead, so this line is absent there.
+    /// </summary>
+    private static W.Paragraph DateParagraph(string date) =>
+        StyledParagraph(date, 18, MutedInk, caps: true, letterSpacing: 24, spaceAfter: 330);
+
+    /// <summary>
+    /// The facts, in a tinted panel: three columns, shaded on every cell so the block reads as one
+    /// field rather than six boxes, with no borders anywhere.
+    /// </summary>
+    private static W.Table FactsPanel(IReadOnlyList<(string Label, string Value)> facts)
     {
         var column = ContentWidth / 3;
 
@@ -504,11 +494,13 @@ internal static class OpenXmlReportBuilder
             new W.TableProperties(
                 new W.TableWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
                 NoBorders(),
+                // The panel's padding. Left and right are set per edge below so the tint runs to
+                // the margins while the text inside stays inset.
                 new W.TableCellMarginDefault(
-                    new W.TopMargin { Width = "120", Type = W.TableWidthUnitValues.Dxa },
-                    new W.TableCellLeftMargin { Width = 0, Type = W.TableWidthValues.Dxa },
-                    new W.BottomMargin { Width = "220", Type = W.TableWidthUnitValues.Dxa },
-                    new W.TableCellRightMargin { Width = 220, Type = W.TableWidthValues.Dxa })),
+                    new W.TopMargin { Width = "250", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellLeftMargin { Width = 300, Type = W.TableWidthValues.Dxa },
+                    new W.BottomMargin { Width = "250", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellRightMargin { Width = 300, Type = W.TableWidthValues.Dxa })),
             new W.TableGrid(
                 new W.GridColumn { Width = column.ToString() },
                 new W.GridColumn { Width = column.ToString() },
@@ -522,13 +514,34 @@ internal static class OpenXmlReportBuilder
             {
                 tableRow.Append(new W.TableCell(
                     new W.TableCellProperties(
-                        new W.TableCellWidth { Width = column.ToString(), Type = W.TableWidthUnitValues.Dxa }),
+                        new W.TableCellWidth { Width = column.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                        new W.Shading
+                        {
+                            Val = W.ShadingPatternValues.Clear,
+                            Color = "auto",
+                            Fill = PanelTint,
+                        }),
                     // Label small, spaced and grey; value larger and bold. The eye should land on
                     // the answer, not the question.
-                    StyledParagraph(label, 15, MutedInk, bold: true, caps: true, letterSpacing: 22, spaceAfter: 20),
+                    StyledParagraph(label, 14, MutedInk, bold: true, caps: true, letterSpacing: 26, spaceAfter: 20),
                     StyledParagraph(
                         string.IsNullOrWhiteSpace(value) ? " " : value,
-                        22, BodyInk, bold: true, spaceAfter: 0)));
+                        18, BodyInk, bold: true, spaceAfter: 0)));
+            }
+
+            // A short final row would otherwise leave the tint ending mid-way across the page.
+            for (var i = row.Length; i < 3; i++)
+            {
+                tableRow.Append(new W.TableCell(
+                    new W.TableCellProperties(
+                        new W.TableCellWidth { Width = column.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                        new W.Shading
+                        {
+                            Val = W.ShadingPatternValues.Clear,
+                            Color = "auto",
+                            Fill = PanelTint,
+                        }),
+                    new W.Paragraph()));
             }
 
             table.Append(tableRow);
@@ -537,32 +550,74 @@ internal static class OpenXmlReportBuilder
         return table;
     }
 
-    /// <summary>A section heading: green, spaced small caps, with a hairline above it.</summary>
-    private static W.Paragraph SectionHeading(string heading, string green, bool rule)
+    /// <summary>
+    /// The sections, as a two-column table: a green numeral, then the heading and its content.
+    ///
+    /// One table for all of them rather than one per section, so every numeral sits on the same
+    /// left edge regardless of how long the heading beside it runs. Rows are left splittable: a
+    /// section with a page of content must be allowed to break, and Word's default does that.
+    /// </summary>
+    private static W.Table SectionsTable(
+        IReadOnlyList<ReportSectionDto> sections, string green, int bulletNumberId)
     {
-        var paragraph = StyledParagraph(
-            heading, 17, Rgb(green), bold: true, caps: true, letterSpacing: 24,
-            spaceBefore: rule ? 280 : 200, spaceAfter: 100);
+        const int numeralColumn = 620;
+        var contentColumn = ContentWidth - numeralColumn;
 
-        if (rule)
+        var table = new W.Table(
+            new W.TableProperties(
+                new W.TableWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                NoBorders(),
+                new W.TableCellMarginDefault(
+                    new W.TopMargin { Width = "300", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellLeftMargin { Width = 0, Type = W.TableWidthValues.Dxa },
+                    new W.BottomMargin { Width = "0", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellRightMargin { Width = 0, Type = W.TableWidthValues.Dxa })),
+            new W.TableGrid(
+                new W.GridColumn { Width = numeralColumn.ToString() },
+                new W.GridColumn { Width = contentColumn.ToString() }));
+
+        for (var i = 0; i < sections.Count; i++)
         {
-            var properties = paragraph.GetFirstChild<W.ParagraphProperties>()!;
+            var section = sections[i];
 
-            // pBdr comes before spacing in the schema's ordering for w:pPr — inserted first rather
-            // than appended, since StyledParagraph has already added spacing.
-            properties.InsertAt(
-                new W.ParagraphBorders(
-                    new W.TopBorder
-                    {
-                        Val = W.BorderValues.Single,
-                        Size = 4,
-                        Color = RuleGrey,
-                        Space = 8,
-                    }),
-                0);
+            var numeral = new W.TableCell(
+                new W.TableCellProperties(
+                    new W.TableCellWidth { Width = numeralColumn.ToString(), Type = W.TableWidthUnitValues.Dxa }),
+                // Two digits throughout, so 9 and 10 align. A document of nine sections numbered
+                // 1..9 and one of twelve numbered 01..12 would not look like the same family.
+                StyledParagraph((i + 1).ToString("00"), 26, Rgb(green), bold: true, spaceAfter: 0));
+
+            var content = new W.TableCell(
+                new W.TableCellProperties(
+                    new W.TableCellWidth { Width = contentColumn.ToString(), Type = W.TableWidthUnitValues.Dxa }),
+                StyledParagraph(section.Heading, 20, BodyInk, bold: true, spaceAfter: 120));
+
+            if (!string.IsNullOrWhiteSpace(section.Content))
+            {
+                foreach (var line in SplitLines(section.Content))
+                {
+                    content.Append(BulletParagraph(line, bulletNumberId));
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(section.Prompt))
+            {
+                // Nothing written yet, and the document type supplies guidance: grey and italic,
+                // so it is visibly an instruction rather than content, and replaced the moment
+                // anything is typed over it.
+                content.Append(PromptParagraph(section.Prompt));
+            }
+            else
+            {
+                // The heading stays even with nothing under it. On a controlled template every
+                // heading is expected to be present, and an absent one reads as a template
+                // someone has edited rather than a section nobody has filled in.
+                content.Append(Spacer(80));
+            }
+
+            table.Append(new W.TableRow(numeral, content));
         }
 
-        return paragraph;
+        return table;
     }
 
     private static W.Paragraph BulletParagraph(string text, int numberId)
@@ -649,6 +704,138 @@ internal static class OpenXmlReportBuilder
         return new W.Paragraph(paragraphProperties, run);
     }
 
+    /// <summary>The document-control line, carrying the purple rule that closes the page.</summary>
+    private static W.Paragraph FooterTextParagraph(string text, string accent, int spaceAfter)
+    {
+        var paragraph = StyledParagraph(text, 14, MutedInk, letterSpacing: 8, spaceAfter: spaceAfter);
+
+        paragraph.GetFirstChild<W.ParagraphProperties>()!.InsertAt(
+            new W.ParagraphBorders(
+                // 12 eighths of a point = 1.5pt. A purple rule rather than a grey hairline: it
+                // closes the page against the strip that opens it, and a hairline this low on an
+                // A4 sheet all but disappears in print.
+                new W.TopBorder { Val = W.BorderValues.Single, Size = 12, Color = Rgb(accent), Space = 6 }),
+            0);
+
+        return paragraph;
+    }
+
+    /// <summary>
+    /// The footer as two cells: the document-control line, and the logo right-aligned beside it.
+    ///
+    /// A table rather than a tab stop, because a tab leaves the image's position dependent on the
+    /// length of the text before it — a longer document number would push the logo off the page.
+    /// The rule sits on the table's top border so it spans the full width rather than stopping
+    /// where the text ends.
+    /// </summary>
+    private static W.Table FooterWithLogo(
+        FooterPart footerPart,
+        string text,
+        string accent,
+        byte[] logo,
+        (int Width, int Height) dimensions)
+    {
+        var imagePart = footerPart.AddImagePart(ImagePartType.Png);
+        using (var source = new MemoryStream(logo))
+        {
+            imagePart.FeedData(source);
+        }
+
+        // Scaled from the real pixel dimensions, so the logo cannot come out stretched.
+        var widthEmu = (long)Math.Round(LogoHeightEmu * (double)dimensions.Width / dimensions.Height);
+
+        var logoColumn = 1600;
+        var textColumn = ContentWidth - logoColumn;
+
+        var textCell = new W.TableCell(
+            new W.TableCellProperties(
+                new W.TableCellWidth { Width = textColumn.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                new W.TableCellVerticalAlignment { Val = W.TableVerticalAlignmentValues.Bottom }),
+            StyledParagraph(text, 14, MutedInk, letterSpacing: 8, spaceAfter: 0));
+
+        var logoCell = new W.TableCell(
+            new W.TableCellProperties(
+                new W.TableCellWidth { Width = logoColumn.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                new W.TableCellVerticalAlignment { Val = W.TableVerticalAlignmentValues.Bottom }),
+            LogoParagraph(footerPart.GetIdOfPart(imagePart), widthEmu));
+
+        return new W.Table(
+            new W.TableProperties(
+                new W.TableWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                new W.TableBorders(
+                    new W.TopBorder { Val = W.BorderValues.Single, Size = 12, Color = Rgb(accent) },
+                    new W.LeftBorder { Val = W.BorderValues.None },
+                    new W.BottomBorder { Val = W.BorderValues.None },
+                    new W.RightBorder { Val = W.BorderValues.None },
+                    new W.InsideHorizontalBorder { Val = W.BorderValues.None },
+                    new W.InsideVerticalBorder { Val = W.BorderValues.None }),
+                new W.TableCellMarginDefault(
+                    new W.TopMargin { Width = "120", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellLeftMargin { Width = 0, Type = W.TableWidthValues.Dxa },
+                    new W.BottomMargin { Width = "0", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellRightMargin { Width = 0, Type = W.TableWidthValues.Dxa })),
+            new W.TableGrid(
+                new W.GridColumn { Width = textColumn.ToString() },
+                new W.GridColumn { Width = logoColumn.ToString() }),
+            new W.TableRow(textCell, logoCell));
+    }
+
+    /// <summary>
+    /// The logo as an inline drawing, right-aligned.
+    ///
+    /// Inline rather than anchored (floating): an anchored image needs a position relative to
+    /// something on the page and can be dragged out of place by an editor, where an inline image
+    /// sits in the text flow and stays where it was put. The nested element order below is
+    /// schema-enforced throughout and none of it is guessable — Extent before EffectExtent before
+    /// DocProperties, and inside the graphic, Blip before Stretch before the shape properties.
+    /// </summary>
+    private static W.Paragraph LogoParagraph(string relationshipId, long widthEmu)
+    {
+        var blipFill = new PIC.BlipFill(
+            new D.Blip { Embed = relationshipId },
+            new D.Stretch(new D.FillRectangle()));
+
+        var picture = new PIC.Picture(
+            new PIC.NonVisualPictureProperties(
+                new PIC.NonVisualDrawingProperties { Id = 0U, Name = "Stirling Council" },
+                new PIC.NonVisualPictureDrawingProperties()),
+            blipFill,
+            new PIC.ShapeProperties(
+                new D.Transform2D(
+                    new D.Offset { X = 0L, Y = 0L },
+                    new D.Extents { Cx = widthEmu, Cy = LogoHeightEmu }),
+                new D.PresetGeometry(new D.AdjustValueList()) { Preset = D.ShapeTypeValues.Rectangle }));
+
+        var drawing = new W.Drawing(
+            new DW.Inline(
+                new DW.Extent { Cx = widthEmu, Cy = LogoHeightEmu },
+                new DW.EffectExtent { LeftEdge = 0L, TopEdge = 0L, RightEdge = 0L, BottomEdge = 0L },
+                new DW.DocProperties
+                {
+                    Id = 1U,
+                    Name = "Stirling Council",
+                    // Read aloud by a screen reader, and shown if the image fails to load.
+                    Description = "Stirling Council",
+                },
+                new DW.NonVisualGraphicFrameDrawingProperties(new D.GraphicFrameLocks { NoChangeAspect = true }),
+                new D.Graphic(new D.GraphicData(picture)
+                {
+                    Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture",
+                }))
+            {
+                DistanceFromTop = 0U,
+                DistanceFromBottom = 0U,
+                DistanceFromLeft = 0U,
+                DistanceFromRight = 0U,
+            });
+
+        return new W.Paragraph(
+            new W.ParagraphProperties(
+                new W.SpacingBetweenLines { After = "0" },
+                new W.Justification { Val = W.JustificationValues.Right }),
+            new W.Run(drawing));
+    }
+
     /// <summary>No borders at all — the default, stated explicitly so the intent is visible.</summary>
     private static W.TableBorders NoBorders() => new(
         new W.TopBorder { Val = W.BorderValues.None },
@@ -667,25 +854,32 @@ internal static class OpenXmlReportBuilder
         ?? report.MeetingDate?.ToString("d MMMM yyyy", Culture)
         ?? string.Empty;
 
+    /// <summary>Logo height in the footer: 11mm, at 36,000 EMU per millimetre.</summary>
+    private const long LogoHeightEmu = 11 * 36000L;
+
     /// <summary>
-    /// The controlled-document footer, above a hairline.
+    /// The controlled-document footer, above a purple rule, with the council logo at the right
+    /// when one has been embedded.
     ///
-    /// The council logo belongs here or in a strip above the band, and is not yet placed: the file
-    /// has not been supplied. Word embeds an image in a footer without difficulty, so this is an
-    /// insertion rather than a rearrangement when it arrives.
+    /// The logo is placed at full strength rather than as a faded watermark. A watermarked roundel
+    /// at footer size goes muddy — it has text around its rim, which at 11mm is already at the
+    /// limit of legibility before any transparency is applied. Full opacity at a small size reads;
+    /// a 40% wash at the same size reads as a smudge.
+    ///
+    /// Absent is a supported state: with no logo file embedded the footer is the text alone, which
+    /// is what every document produces today. See <see cref="CouncilLogo"/>.
     /// </summary>
-    private static void AppendDocumentControlFooter(MainDocumentPart main, string text, string green)
+    private static void AppendDocumentControlFooter(
+        MainDocumentPart main, string text, string accent, byte[]? logo)
     {
         var footerPart = main.AddNewPart<FooterPart>();
 
-        var paragraph = StyledParagraph(text, 14, MutedInk, letterSpacing: 8, spaceAfter: 0);
+        var dimensions = logo is null ? null : CouncilLogo.Dimensions(logo);
 
-        paragraph.GetFirstChild<W.ParagraphProperties>()!.InsertAt(
-            new W.ParagraphBorders(
-                new W.TopBorder { Val = W.BorderValues.Single, Size = 4, Color = RuleGrey, Space = 6 }),
-            0);
+        footerPart.Footer = dimensions is null
+            ? new W.Footer(FooterTextParagraph(text, accent, spaceAfter: 0))
+            : new W.Footer(FooterWithLogo(footerPart, text, accent, logo!, dimensions.Value));
 
-        footerPart.Footer = new W.Footer(paragraph);
         footerPart.Footer.Save();
 
         var footerId = main.GetIdOfPart(footerPart);
