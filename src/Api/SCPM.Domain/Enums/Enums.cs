@@ -16,7 +16,31 @@ public enum CommitteeReportType
     /// does not matter to the database, but keeping additions at the end means a reader comparing
     /// this enum against older code sees an addition rather than a reshuffle.
     /// </summary>
-    StatusReport
+    StatusReport,
+
+    /// <summary>
+    /// RIBA Stage 0 — the short document that authorises a project to be explored at all. Not a
+    /// business case: it records what problem is being looked at and who is permitted to spend
+    /// time on it.
+    /// </summary>
+    ProjectMandate,
+
+    /// <summary>
+    /// RIBA Stage 0 — structured on the HM Treasury Five Case Model (strategic, economic,
+    /// commercial, financial, management), which the Scottish Capital Investment Manual also
+    /// uses. Chosen over an invented structure because a reviewer who has read one public-sector
+    /// business case can read this one without being taught it.
+    /// </summary>
+    StrategicBusinessCase,
+
+    /// <summary>RIBA Stage 1 — what the project must achieve, against which design is tested.</summary>
+    ProjectBrief,
+
+    /// <summary>RIBA Stage 1 — whether and how the brief can be met, and at what cost.</summary>
+    FeasibilityStudy,
+
+    /// <summary>RIBA Stage 1 — how the project will be run: governance, controls, and by whom.</summary>
+    ProjectExecutionPlan
 }
 
 public enum CommitteeReportStatus

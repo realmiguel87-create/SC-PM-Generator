@@ -6,6 +6,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SCPM.Application.Common.Interfaces;
 using SCPM.Application.Reporting.Dtos;
+using SCPM.Domain.Common;
 using SCPM.Domain.Enums;
 
 namespace SCPM.Infrastructure.Reporting;
@@ -42,14 +43,39 @@ public class CommitteeReportExporter : ICommitteeReportExporter
             ReportExportFormat.Xlsx => ExportXlsx(report),
             ReportExportFormat.Csv => ExportCsv(report),
             ReportExportFormat.Json => ExportJson(report),
-            // The status report has its own layout: it reproduces the council's controlled
-            // template PD.01.25 as a table, not as headings and paragraphs.
-            ReportExportFormat.Docx => report.ReportType == nameof(CommitteeReportType.StatusReport)
-                ? OpenXmlReportBuilder.BuildStatusReportDocx(report, report.Sections, StirlingPurple, StirlingGreen)
-                : OpenXmlReportBuilder.BuildDocx(report, report.Sections, StirlingPurple, TextSecondary),
+            ReportExportFormat.Docx => ExportDocx(report),
             ReportExportFormat.Pptx => OpenXmlReportBuilder.BuildPptx(report, report.Sections, StirlingPurple, TextSecondary),
             _ => throw new NotSupportedException($"Export format {format} is not supported.")
         });
+    }
+
+    /// <summary>
+    /// Picks the Word layout for the report type.
+    ///
+    /// The status report and the five RIBA stage documents share the branded layout — purple band,
+    /// facts grid, green headings. Committee papers keep the plain heading-and-paragraph layout
+    /// they have always had: the restyle was asked for on the council's status report, not as a
+    /// house style imposed on every document the platform produces.
+    ///
+    /// An unrecognised type falls through to the plain layout rather than throwing. A report type
+    /// added to the enum without a layout should still export.
+    /// </summary>
+    private static byte[] ExportDocx(CommitteeReportDto report)
+    {
+        if (report.ReportType == nameof(CommitteeReportType.StatusReport))
+        {
+            return OpenXmlReportBuilder.BuildStatusReportDocx(
+                report, report.Sections, StirlingPurple, StirlingGreen);
+        }
+
+        if (Enum.TryParse<CommitteeReportType>(report.ReportType, out var type)
+            && StageDocuments.Find(type) is { } definition)
+        {
+            return OpenXmlReportBuilder.BuildStageDocumentDocx(
+                report, definition, report.Sections, StirlingPurple, StirlingGreen);
+        }
+
+        return OpenXmlReportBuilder.BuildDocx(report, report.Sections, StirlingPurple, TextSecondary);
     }
 
     private byte[] ExportPdf(CommitteeReportDto report)

@@ -8,7 +8,17 @@ namespace SCPM.Domain.Common;
 /// today, "Financial Position" after someone's review — and content keyed by its heading would be
 /// orphaned by that edit. The key is what content is stored against; the heading is presentation.
 /// </param>
-public record ReportSection(string Key, string Heading);
+/// <param name="Prompt">
+/// Guidance for whoever fills the section in, shown only while it is empty and never alongside
+/// real content. This is what separates a template from a list of headings: "Economic Case" tells
+/// an author nothing, where "Options considered, how each was appraised, and why the preferred
+/// one offers best value" tells them what the section is for.
+///
+/// Null for the status report and the committee paper. Both are written through the platform's own
+/// editor, which carries its own hints, and both predate this field — prompts appearing in
+/// documents that have been in use for months would be a change nobody asked for.
+/// </param>
+public record ReportSection(string Key, string Heading, string? Prompt = null);
 
 /// <summary>
 /// Which sections each kind of report has, and what they are called.
@@ -62,11 +72,21 @@ public static class ReportSections
         new("recommendations", "Recommendations"),
     ];
 
-    public static IReadOnlyList<ReportSection> For(CommitteeReportType type) => type switch
-    {
-        CommitteeReportType.StatusReport => StatusReport,
-        _ => CommitteePaper,
-    };
+    /// <summary>
+    /// The sections for a report type.
+    ///
+    /// The RIBA stage documents are consulted first and hold their own sections next to the rest of
+    /// their definition — header wording, stage, footer — because a document is easier to review
+    /// when all of it is in one place than when its headings live here and its chrome lives
+    /// elsewhere. See <see cref="StageDocuments"/>.
+    /// </summary>
+    public static IReadOnlyList<ReportSection> For(CommitteeReportType type) =>
+        StageDocuments.Find(type)?.Sections
+        ?? type switch
+        {
+            CommitteeReportType.StatusReport => StatusReport,
+            _ => CommitteePaper,
+        };
 
     /// <summary>
     /// Looks up a section by key within a report type, or null when the type has no such section.

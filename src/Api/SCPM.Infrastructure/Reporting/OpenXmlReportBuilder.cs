@@ -2,6 +2,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using SCPM.Application.Reporting.Dtos;
 using SCPM.Application.Reporting.Export;
+using SCPM.Domain.Common;
 using D = DocumentFormat.OpenXml.Drawing;
 using P = DocumentFormat.OpenXml.Presentation;
 using W = DocumentFormat.OpenXml.Wordprocessing;
@@ -249,7 +250,59 @@ internal static class OpenXmlReportBuilder
         CommitteeReportDto report,
         IReadOnlyList<ReportSectionDto> sections,
         string purple,
-        string green)
+        string green) =>
+        BuildBrandedDocx(
+            sections,
+            purple,
+            green,
+            eyebrow: "Infrastructure Delivery · Programme Governance",
+            title: "Programme/Project Status Report",
+            bandDate: null,
+            facts: StatusReportFacts(report),
+            footer: "Doc No: PD.01.25      Issued by: Project Delivery      Date: Jun-17      Version: 01");
+
+    /// <summary>
+    /// A RIBA Stage 0–1 governance document, in the same layout as the status report.
+    ///
+    /// Sharing the layout is the point rather than a saving: five documents that each looked
+    /// slightly different would undo the reason for restyling the status report in the first
+    /// place. What varies between them is the wording in the band, the stage in the facts block,
+    /// and the sections — all of which arrive as data.
+    ///
+    /// The footer carries no document number. PD.01.25 is the council's own reference for its own
+    /// template; inventing one for a document the council has never issued would put a plausible
+    /// but false reference on a controlled document, so it says what it is instead.
+    /// </summary>
+    public static byte[] BuildStageDocumentDocx(
+        CommitteeReportDto report,
+        DocumentDefinition definition,
+        IReadOnlyList<ReportSectionDto> sections,
+        string purple,
+        string green) =>
+        BuildBrandedDocx(
+            sections,
+            purple,
+            green,
+            eyebrow: definition.Eyebrow,
+            title: definition.Title,
+            bandDate: FormatReportDate(report),
+            facts: StageDocumentFacts(report, definition),
+            footer: $"{definition.Title}      Doc No: [to be assigned]      "
+                  + "Issued by: Project Delivery      Version: 01");
+
+    /// <summary>
+    /// The shared layout: purple band, facts grid, then one green heading per section with its
+    /// content as bullets.
+    /// </summary>
+    private static byte[] BuildBrandedDocx(
+        IReadOnlyList<ReportSectionDto> sections,
+        string purple,
+        string green,
+        string eyebrow,
+        string title,
+        string? bandDate,
+        IReadOnlyList<(string Label, string Value)> facts,
+        string footer)
     {
         using var stream = new MemoryStream();
 
@@ -261,9 +314,9 @@ internal static class OpenXmlReportBuilder
 
             var body = new W.Body();
 
-            body.Append(HeaderBand(report, purple));
+            body.Append(HeaderBand(eyebrow, title, bandDate, purple));
             body.Append(Spacer(120));
-            body.Append(FactsTable(report, green));
+            body.Append(FactsTable(facts, green));
 
             var first = true;
             foreach (var section in sections)
@@ -273,27 +326,64 @@ internal static class OpenXmlReportBuilder
                 body.Append(SectionHeading(section.Heading, green, rule: !first));
                 first = false;
 
-                if (string.IsNullOrWhiteSpace(section.Content))
+                if (!string.IsNullOrWhiteSpace(section.Content))
                 {
-                    // The heading stays even when nothing is written under it. On a controlled
-                    // template every heading is expected to be present, and an absent one reads as
-                    // a template someone has edited.
-                    body.Append(Spacer(80));
+                    foreach (var line in SplitLines(section.Content))
+                    {
+                        body.Append(BulletParagraph(line, bulletNumberId));
+                    }
+
                     continue;
                 }
 
-                foreach (var line in SplitLines(section.Content))
-                {
-                    body.Append(BulletParagraph(line, bulletNumberId));
-                }
+                // Nothing written yet. The heading stays regardless — on a controlled template
+                // every heading is expected to be present, and an absent one reads as a template
+                // someone has edited rather than a section nobody has filled in.
+                //
+                // Where the document type supplies guidance, it goes here: grey and italic, so it
+                // is visibly an instruction rather than content, and it is replaced the moment
+                // anything is written.
+                body.Append(string.IsNullOrWhiteSpace(section.Prompt)
+                    ? Spacer(80)
+                    : PromptParagraph(section.Prompt));
             }
 
             main.Document = new W.Document(body);
-            AppendDocumentControlFooter(main, green);
+            AppendDocumentControlFooter(main, footer, green);
         }
 
         return stream.ToArray();
     }
+
+    /// <summary>The status report's facts block, unchanged: six cells over two rows.</summary>
+    private static IReadOnlyList<(string Label, string Value)> StatusReportFacts(CommitteeReportDto report) =>
+    [
+        ("Project / Programme", report.ProjectName),
+        ("Project ID Ref", report.ProjectRef),
+        ("Report Date", FormatReportDate(report)),
+        ("Project Sponsor", report.SponsorName ?? string.Empty),
+        ("Project Manager", report.ProjectManagerName ?? string.Empty),
+        ("Budget", FormatBudget(report)),
+    ];
+
+    /// <summary>
+    /// A stage document's facts block. The same six-cell grid as the status report, with the RIBA
+    /// stage where the report date sits there — the date belongs with the title on a document
+    /// issued once, rather than among facts about the project.
+    /// </summary>
+    private static IReadOnlyList<(string Label, string Value)> StageDocumentFacts(
+        CommitteeReportDto report, DocumentDefinition definition) =>
+    [
+        ("Project / Programme", report.ProjectName),
+        ("Project ID Ref", report.ProjectRef),
+        ("RIBA Stage", definition.RibaStage),
+        ("Project Sponsor", report.SponsorName ?? string.Empty),
+        ("Project Manager", report.ProjectManagerName ?? string.Empty),
+        ("Budget", FormatBudget(report)),
+    ];
+
+    private static string FormatBudget(CommitteeReportDto report) =>
+        report.ApprovedBudget > 0 ? report.ApprovedBudget.ToString("C2", Culture) : string.Empty;
 
     /// <summary>
     /// Sets Segoe UI as the document default.
@@ -365,7 +455,7 @@ internal static class OpenXmlReportBuilder
     /// A single-cell shaded table rather than a shaded paragraph, because a paragraph's shading
     /// stops at the text and a table cell can be given real padding on all four sides.
     /// </summary>
-    private static W.Table HeaderBand(CommitteeReportDto report, string purple)
+    private static W.Table HeaderBand(string eyebrow, string title, string? date, string purple)
     {
         var cell = new W.TableCell(
             new W.TableCellProperties(
@@ -377,11 +467,22 @@ internal static class OpenXmlReportBuilder
                     new W.BottomMargin { Width = "240", Type = W.TableWidthUnitValues.Dxa },
                     new W.RightMargin { Width = "280", Type = W.TableWidthUnitValues.Dxa })),
             StyledParagraph(
-                "Infrastructure Delivery · Programme Governance",
+                eyebrow,
                 16, "FFFFFF", bold: true, caps: true, letterSpacing: 30, spaceAfter: 40),
+            // The title closes the band when there is no date, so it takes the zero bottom spacing
+            // in that case and gives it up to the date line when there is one.
             StyledParagraph(
-                "Programme/Project Status Report",
-                38, "FFFFFF", bold: true, spaceAfter: 0));
+                title,
+                38, "FFFFFF", bold: true, spaceAfter: string.IsNullOrWhiteSpace(date) ? 0 : 60));
+
+        if (!string.IsNullOrWhiteSpace(date))
+        {
+            // On a document issued once, the date belongs with the title rather than among facts
+            // about the project. A blank template has no date and simply omits the line, rather
+            // than printing a label with nothing after it.
+            cell.Append(StyledParagraph(
+                date, 17, "FFFFFF", caps: true, letterSpacing: 20, spaceAfter: 0));
+        }
 
         return new W.Table(
             new W.TableProperties(
@@ -395,23 +496,9 @@ internal static class OpenXmlReportBuilder
     /// The six header facts as three columns of stacked label-over-value, with no cell borders at
     /// all and one hairline beneath the block.
     /// </summary>
-    private static W.Table FactsTable(CommitteeReportDto report, string green)
+    private static W.Table FactsTable(IReadOnlyList<(string Label, string Value)> facts, string green)
     {
         var column = ContentWidth / 3;
-
-        var budget = report.ApprovedBudget > 0
-            ? report.ApprovedBudget.ToString("C2", Culture)
-            : string.Empty;
-
-        var facts = new (string Label, string Value)[]
-        {
-            ("Project / Programme", report.ProjectName),
-            ("Project ID Ref", report.ProjectRef),
-            ("Report Date", FormatReportDate(report)),
-            ("Project Sponsor", report.SponsorName ?? string.Empty),
-            ("Project Manager", report.ProjectManagerName ?? string.Empty),
-            ("Budget", budget),
-        };
 
         var table = new W.Table(
             new W.TableProperties(
@@ -495,6 +582,32 @@ internal static class OpenXmlReportBuilder
         return new W.Paragraph(properties, run);
     }
 
+    /// <summary>
+    /// A section's author guidance, while nothing has been written under the heading.
+    ///
+    /// Italic and grey, indented to the same left edge as the bullets so the block is visibly
+    /// where the content goes. Not a bullet: it is one instruction about the section, not the
+    /// first item of its content, and a reader who deletes it should not be left with an orphaned
+    /// list marker.
+    /// </summary>
+    private static W.Paragraph PromptParagraph(string text)
+    {
+        var properties = new W.ParagraphProperties(
+            new W.SpacingBetweenLines { After = "140", Line = "264", LineRule = W.LineSpacingRuleValues.Auto },
+            new W.Indentation { Left = "284" });
+
+        // Schema order inside w:rPr: rFonts, i, color, sz.
+        var run = new W.Run(
+            new W.RunProperties(
+                new W.RunFonts { Ascii = "Segoe UI", HighAnsi = "Segoe UI", ComplexScript = "Segoe UI" },
+                new W.Italic(),
+                new W.Color { Val = MutedInk },
+                new W.FontSize { Val = "19" }),
+            new W.Text(text) { Space = SpaceProcessingModeValues.Preserve });
+
+        return new W.Paragraph(properties, run);
+    }
+
     private static W.Paragraph Spacer(int twips) =>
         new(new W.ParagraphProperties(
                 new W.SpacingBetweenLines { After = twips.ToString(), Line = "20", LineRule = W.LineSpacingRuleValues.Exact }));
@@ -561,13 +674,11 @@ internal static class OpenXmlReportBuilder
     /// has not been supplied. Word embeds an image in a footer without difficulty, so this is an
     /// insertion rather than a rearrangement when it arrives.
     /// </summary>
-    private static void AppendDocumentControlFooter(MainDocumentPart main, string green)
+    private static void AppendDocumentControlFooter(MainDocumentPart main, string text, string green)
     {
         var footerPart = main.AddNewPart<FooterPart>();
 
-        var paragraph = StyledParagraph(
-            "Doc No: PD.01.25      Issued by: Project Delivery      Date: Jun-17      Version: 01",
-            14, MutedInk, letterSpacing: 8, spaceAfter: 0);
+        var paragraph = StyledParagraph(text, 14, MutedInk, letterSpacing: 8, spaceAfter: 0);
 
         paragraph.GetFirstChild<W.ParagraphProperties>()!.InsertAt(
             new W.ParagraphBorders(

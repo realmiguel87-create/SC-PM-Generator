@@ -71,6 +71,7 @@ public class GetCommitteeReportQueryHandler : IRequestHandler<GetCommitteeReport
                     Key = s.Key,
                     Heading = s.Heading,
                     Content = content.GetValueOrDefault(s.Key),
+                    Prompt = s.Prompt,
                 })
                 .ToList(),
         };

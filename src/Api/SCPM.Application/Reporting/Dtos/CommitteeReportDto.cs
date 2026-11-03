@@ -13,6 +13,13 @@ public class ReportSectionDto
     public string Heading { get; set; } = default!;
 
     public string? Content { get; set; }
+
+    /// <summary>
+    /// Guidance for whoever fills this section in. Rendered only while <see cref="Content"/> is
+    /// empty, so a document in use never shows it. Null on report types that have no prompts — the
+    /// status report and the committee paper.
+    /// </summary>
+    public string? Prompt { get; set; }
 }
 
 public class CommitteeReportDto
