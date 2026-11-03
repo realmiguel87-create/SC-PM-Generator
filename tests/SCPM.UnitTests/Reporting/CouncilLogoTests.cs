@@ -119,14 +119,13 @@ public class CouncilLogoTests
     }
 
     [Fact]
-    public void Puts_the_real_logo_into_a_document_exported_through_the_exporter()
+    public async Task Puts_the_real_logo_into_a_document_exported_through_the_exporter()
     {
         // The path an actual document takes. The tests above drive the builder directly with a
         // generated PNG, which would still pass if the exporter never passed the logo along.
-        var bytes = new CommitteeReportExporter()
+        var bytes = await new CommitteeReportExporter()
             .ExportAsync(Mandate(), SCPM.Application.Common.Interfaces.ReportExportFormat.Docx,
-                CancellationToken.None)
-            .GetAwaiter().GetResult();
+                CancellationToken.None);
 
         using var stream = new MemoryStream(bytes);
         using var document = WordprocessingDocument.Open(stream, false);

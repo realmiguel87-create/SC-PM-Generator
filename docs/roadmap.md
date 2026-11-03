@@ -493,4 +493,19 @@ The logo arrived as a file for the first time, which closed the gap left open si
 - [ ] The canvas in Phase 32 was drawn in the old colours. The documents now differ from the design proof that approved them, in the direction of the real mark, but the artboards were not updated to match.
 - [ ] PDF, XLSX, CSV and PPTX still carry the old plain layout and the old palette. The gap between Word and every other format is now a palette as well as a layout.
 
+## Phase 34 — The Typeface
+
+Asked whether Times New Roman would give a mid-century feel. It would not, and the reasoning is worth keeping because the conclusion is counter-intuitive.
+
+- [x] **Times New Roman was declined, with reasons rather than taste.** It is genuinely of the period — Morison, 1931 — but thirty years as the Word default means it now reads as an undesigned document: school essay, legal filing, unformatted draft. That association swamps any period reference. Mid-century design was also not serif: 1945–65 is Helvetica, Univers, Gill Sans, Akzidenz-Grotesk. Segoe UI was closer to the brief than Times.
+- [x] **Palatino Linotype is the typeface the question was actually reaching for** — Hermann Zapf, 1948–50, literally mid-century, and on every Windows install, so it costs nothing in compatibility.
+- [x] **Three settings of the same page were drawn and the service chose the hybrid**: Palatino for the title, section numerals, headings and running text; Segoe UI for the strip, the fact labels and values, and the footer. A capital project document has two jobs pulling against each other — prose wants a serif's warmth, and the facts panel wants to be scanned, where figures in a serif at this size go soft. That panel is the part people look things up in.
+- [x] **Body size raised 10.5pt → 11pt**, headings 10 → 11, numerals 13 → 14, title 30 → 32. A serif at the same point size reads smaller — finer strokes, lower x-height — so keeping the numbers would have been a reduction in practice.
+- [x] **A test now asserts the split, not just the default.** Heading in the serif, fact label and value in the sans, footer in the sans. The obvious later tidy-up is to unify everything onto one face, which would undo the decision without failing a test that only checked the document default.
+- [x] Verified in the generated package: the default face is Palatino Linotype, and run-by-run the strip, labels and values are Segoe UI while the title, numerals, headings and prose are Palatino. **190/190 unit tests**, both projects clean under `-warnaserror`, zero `OpenXmlValidator` errors.
+- [ ] **Palatino Linotype's presence on the council build is unconfirmed.** It ships with Windows, but a locked-down estate can trim its font set, and Word substitutes silently rather than warning. If documents come out in something unexpected, this is the first thing to check — it is a one-line change to fall back to Georgia or Cambria, both equally universal.
+- [ ] **Still nobody has opened any of this in Word, and this phase needs it more than its predecessors.** A typeface is the one decision that cannot be judged from markup, and serifs behave differently on paper than on a backlit screen — generally better, which means the printed page is likely stronger than the proof that approved it. Print one.
+- [ ] The design canvas artboards use a CSS font stack with fallbacks; Word has no such chain and substitutes on its own terms. The proof and the deliverable agree only while the font is installed.
+- [ ] PDF, XLSX, CSV and PPTX are untouched and still set in the old face, the old palette and the old layout.
+
 Each phase is designed to be independently shippable and reviewable. Modules from Phase 2 onward follow the same Domain → Application → Infrastructure → Api → Web pattern established in Phase 1.

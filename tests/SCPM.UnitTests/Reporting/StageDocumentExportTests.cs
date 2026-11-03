@@ -194,7 +194,11 @@ public class StageDocumentExportTests
 
         document.MainDocumentPart.StyleDefinitionsPart!
             .Styles!.Descendants<W.RunFonts>().First()
-            .Ascii!.Value.Should().Be("Segoe UI");
+            .Ascii!.Value.Should().Be("Palatino Linotype");
+
+        // The strip is data about the document, so it takes the sans alongside the facts panel.
+        body.Descendants<W.Table>().First()
+            .Descendants<W.RunFonts>().Single().Ascii!.Value.Should().Be("Segoe UI");
 
         var definition = StageDocuments.Find(type)!;
 

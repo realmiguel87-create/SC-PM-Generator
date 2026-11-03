@@ -39,6 +39,11 @@ public class StatusReportExportTests
 
     private const string BodyInk = "1F1B2A";
 
+    /// <summary>Hermann Zapf, 1948–50, and on every Windows install.</summary>
+    private const string Serif = "Palatino Linotype";
+
+    private const string Sans = "Segoe UI";
+
     private static CommitteeReportDto StatusReport() => new()
     {
         Id = Guid.NewGuid(),
@@ -137,7 +142,9 @@ public class StatusReportExportTests
         var title = body.Elements<W.Paragraph>()
             .Single(p => p.InnerText == "Programme/Project Status Report");
 
-        title.Descendants<W.FontSize>().Single().Val!.Value.Should().Be("60");
+        // 32pt. Up from 30 when the title was set in a sans: a serif at the same point size
+        // reads smaller.
+        title.Descendants<W.FontSize>().Single().Val!.Value.Should().Be("64");
         title.Descendants<W.Color>().Single().Val!.Value.Should().Be(BodyInk);
     }
 
@@ -231,17 +238,33 @@ public class StatusReportExportTests
     }
 
     [Fact]
-    public void Names_the_typeface_rather_than_leaving_it_to_word()
+    public void Sets_the_prose_in_the_serif_and_the_data_in_the_sans()
     {
         using var stream = new MemoryStream(Export(StatusReport()));
         using var document = Open(stream);
+        var body = document.MainDocumentPart!.Document.Body!;
 
-        var defaultFont = document.MainDocumentPart!.StyleDefinitionsPart!
-            .Styles!.Descendants<W.RunFonts>().First();
+        // Word's own default differs by version — Calibri on older installs, Aptos on newer — so
+        // the same report would look different depending on who opened it.
+        document.MainDocumentPart.StyleDefinitionsPart!
+            .Styles!.Descendants<W.RunFonts>().First()
+            .Ascii!.Value.Should().Be(Serif, "the running text carries the document's voice");
 
-        // Word's default differs by version — Calibri on older installs, Aptos on newer — so the
-        // same report would look different depending on who opened it.
-        defaultFont.Ascii!.Value.Should().Be("Segoe UI");
+        // The split is the whole point of this setting, and it is the part a later tidy-up would
+        // undo by unifying everything onto one face. The prose wants a serif's warmth; the facts
+        // panel wants to be scanned, and figures in a serif at this size go soft.
+        var heading = body.Descendants<W.Paragraph>().First(p => p.InnerText == "Issues");
+        heading.Descendants<W.RunFonts>().Single().Ascii!.Value.Should().Be(Serif);
+
+        var label = body.Descendants<W.Paragraph>().First(p => p.InnerText == "Project Sponsor");
+        label.Descendants<W.RunFonts>().Single().Ascii!.Value.Should().Be(Sans);
+
+        var value = body.Descendants<W.Paragraph>().First(p => p.InnerText == "A. Sample");
+        value.Descendants<W.RunFonts>().Single().Ascii!.Value.Should().Be(Sans);
+
+        // The footer is document control, which is data about the page rather than the page.
+        document.MainDocumentPart.FooterParts.Single()
+            .Footer.Descendants<W.RunFonts>().First().Ascii!.Value.Should().Be(Sans);
     }
 
     [Fact]

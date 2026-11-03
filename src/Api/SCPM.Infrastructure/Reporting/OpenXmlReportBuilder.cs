@@ -210,8 +210,33 @@ internal static class OpenXmlReportBuilder
 
     // --- Status report (council template PD.01.25, restyled) ---
 
-    /// <summary>Body text size in half-points — 10.5pt.</summary>
-    private const int BodyHalfPoints = 21;
+    /// <summary>Body text size in half-points — 11pt.</summary>
+    ///
+    /// Up from 10.5pt when the body face was a sans. A serif at the same point size reads
+    /// smaller: the strokes are finer and the x-height lower, so matching the number would have
+    /// been a reduction in practice.
+    private const int BodyHalfPoints = 22;
+
+    /// <summary>
+    /// The document's voice: title, headings, section numerals and running text.
+    ///
+    /// Palatino Linotype, Hermann Zapf 1948–50, and on every Windows install. Named explicitly
+    /// because Word's own default differs by version — Calibri on older machines, Aptos on newer —
+    /// so the same document would otherwise look different depending on who opened it. If a
+    /// locked-down estate has trimmed its font set, Word substitutes silently and the documents
+    /// will come out in something else; that is worth checking once on a council build.
+    /// </summary>
+    private const string SerifFont = "Palatino Linotype";
+
+    /// <summary>
+    /// The document's data: the strip, the fact labels and values, the footer.
+    ///
+    /// A capital project document has two jobs pulling against each other. The prose wants the
+    /// warmth and authority of a serif; the facts panel wants to be scanned, and figures in a
+    /// serif at this size go soft — that panel is the part people look things up in. So the voice
+    /// is set in Palatino and the data in Segoe UI.
+    /// </summary>
+    private const string SansFont = "Segoe UI";
 
     /// <summary>A4 portrait, in twentieths of a point.</summary>
     private const int PageWidth = 11906;
@@ -378,7 +403,8 @@ internal static class OpenXmlReportBuilder
     ///
     /// Named explicitly rather than left to Word's default, which differs by version — Calibri on
     /// older installs, Aptos on newer ones — so the same report would look different depending on
-    /// who opened it. Segoe UI is present on every Windows machine.
+    /// who opened it. The default is the serif: it carries the running text, and the places that
+    /// take the sans say so individually. See <see cref="SerifFont"/> and <see cref="SansFont"/>.
     /// </summary>
     private static void AppendDocumentDefaults(MainDocumentPart main)
     {
@@ -388,7 +414,7 @@ internal static class OpenXmlReportBuilder
             new W.DocDefaults(
                 new W.RunPropertiesDefault(
                     new W.RunPropertiesBaseStyle(
-                        new W.RunFonts { Ascii = "Segoe UI", HighAnsi = "Segoe UI", ComplexScript = "Segoe UI" },
+                        Fonts(SerifFont),
                         new W.Color { Val = BodyInk },
                         new W.FontSize { Val = BodyHalfPoints.ToString() })),
                 new W.ParagraphPropertiesDefault(
@@ -424,7 +450,7 @@ internal static class OpenXmlReportBuilder
             new W.PreviousParagraphProperties(
                 new W.Indentation { Left = "284", Hanging = "170" }),
             new W.NumberingSymbolRunProperties(
-                new W.RunFonts { Ascii = "Segoe UI", HighAnsi = "Segoe UI" }))
+                Fonts(SerifFont)))
         { LevelIndex = 0 };
 
         numberingPart.Numbering = new W.Numbering(
@@ -459,7 +485,8 @@ internal static class OpenXmlReportBuilder
                         new W.BottomMargin { Width = "135", Type = W.TableWidthUnitValues.Dxa },
                         new W.RightMargin { Width = "300", Type = W.TableWidthUnitValues.Dxa })),
                 StyledParagraph(
-                    eyebrow, 15, "FFFFFF", bold: true, caps: true, letterSpacing: 26, spaceAfter: 0))));
+                    eyebrow, 15, "FFFFFF", bold: true, caps: true, letterSpacing: 26, spaceAfter: 0,
+                    font: SansFont))));
 
     /// <summary>
     /// The document title, below the strip rather than inside it.
@@ -471,7 +498,7 @@ internal static class OpenXmlReportBuilder
     /// </summary>
     private static W.Paragraph TitleParagraph(string title, bool followedByDate) =>
         StyledParagraph(
-            title, 60, BodyInk, bold: true,
+            title, 64, BodyInk, bold: true,
             spaceBefore: 330, spaceAfter: followedByDate ? 60 : 330);
 
     /// <summary>
@@ -479,7 +506,8 @@ internal static class OpenXmlReportBuilder
     /// carries its date among the facts instead, so this line is absent there.
     /// </summary>
     private static W.Paragraph DateParagraph(string date) =>
-        StyledParagraph(date, 18, MutedInk, caps: true, letterSpacing: 24, spaceAfter: 330);
+        StyledParagraph(date, 18, MutedInk, caps: true, letterSpacing: 24, spaceAfter: 330,
+            font: SansFont);
 
     /// <summary>
     /// The facts, in a tinted panel: three columns, shaded on every cell so the block reads as one
@@ -522,10 +550,11 @@ internal static class OpenXmlReportBuilder
                         }),
                     // Label small, spaced and grey; value larger and bold. The eye should land on
                     // the answer, not the question.
-                    StyledParagraph(label, 14, MutedInk, bold: true, caps: true, letterSpacing: 26, spaceAfter: 20),
+                    StyledParagraph(label, 14, MutedInk, bold: true, caps: true, letterSpacing: 26,
+                        spaceAfter: 20, font: SansFont),
                     StyledParagraph(
                         string.IsNullOrWhiteSpace(value) ? " " : value,
-                        18, BodyInk, bold: true, spaceAfter: 0)));
+                        18, BodyInk, bold: true, spaceAfter: 0, font: SansFont)));
             }
 
             // A short final row would otherwise leave the tint ending mid-way across the page.
@@ -584,12 +613,12 @@ internal static class OpenXmlReportBuilder
                     new W.TableCellWidth { Width = numeralColumn.ToString(), Type = W.TableWidthUnitValues.Dxa }),
                 // Two digits throughout, so 9 and 10 align. A document of nine sections numbered
                 // 1..9 and one of twelve numbered 01..12 would not look like the same family.
-                StyledParagraph((i + 1).ToString("00"), 26, Rgb(green), bold: true, spaceAfter: 0));
+                StyledParagraph((i + 1).ToString("00"), 28, Rgb(green), bold: true, spaceAfter: 0));
 
             var content = new W.TableCell(
                 new W.TableCellProperties(
                     new W.TableCellWidth { Width = contentColumn.ToString(), Type = W.TableWidthUnitValues.Dxa }),
-                StyledParagraph(section.Heading, 20, BodyInk, bold: true, spaceAfter: 120));
+                StyledParagraph(section.Heading, 22, BodyInk, bold: true, spaceAfter: 120));
 
             if (!string.IsNullOrWhiteSpace(section.Content))
             {
@@ -629,6 +658,7 @@ internal static class OpenXmlReportBuilder
 
         var run = new W.Run(
             new W.RunProperties(
+                Fonts(SerifFont),
                 new W.Color { Val = BodyInk },
                 new W.FontSize { Val = BodyHalfPoints.ToString() }),
             new W.Text(text) { Space = SpaceProcessingModeValues.Preserve });
@@ -653,10 +683,10 @@ internal static class OpenXmlReportBuilder
         // Schema order inside w:rPr: rFonts, i, color, sz.
         var run = new W.Run(
             new W.RunProperties(
-                new W.RunFonts { Ascii = "Segoe UI", HighAnsi = "Segoe UI", ComplexScript = "Segoe UI" },
+                Fonts(SerifFont),
                 new W.Italic(),
                 new W.Color { Val = MutedInk },
-                new W.FontSize { Val = "19" }),
+                new W.FontSize { Val = "20" }),
             new W.Text(text) { Space = SpaceProcessingModeValues.Preserve });
 
         return new W.Paragraph(properties, run);
@@ -682,15 +712,15 @@ internal static class OpenXmlReportBuilder
         bool caps = false,
         int letterSpacing = 0,
         int spaceBefore = 0,
-        int spaceAfter = 80)
+        int spaceAfter = 80,
+        string font = SerifFont)
     {
         var spacing = new W.SpacingBetweenLines { After = spaceAfter.ToString() };
         if (spaceBefore > 0) spacing.Before = spaceBefore.ToString();
 
         var paragraphProperties = new W.ParagraphProperties(spacing);
 
-        var runProperties = new W.RunProperties(
-            new W.RunFonts { Ascii = "Segoe UI", HighAnsi = "Segoe UI", ComplexScript = "Segoe UI" });
+        var runProperties = new W.RunProperties(Fonts(font));
 
         if (bold) runProperties.Append(new W.Bold());
         if (caps) runProperties.Append(new W.Caps());
@@ -706,7 +736,8 @@ internal static class OpenXmlReportBuilder
     /// <summary>The document-control line, carrying the purple rule that closes the page.</summary>
     private static W.Paragraph FooterTextParagraph(string text, string accent, int spaceAfter)
     {
-        var paragraph = StyledParagraph(text, 14, MutedInk, letterSpacing: 8, spaceAfter: spaceAfter);
+        var paragraph = StyledParagraph(text, 14, MutedInk, letterSpacing: 8, spaceAfter: spaceAfter,
+            font: SansFont);
 
         paragraph.GetFirstChild<W.ParagraphProperties>()!.InsertAt(
             new W.ParagraphBorders(
@@ -750,7 +781,7 @@ internal static class OpenXmlReportBuilder
             new W.TableCellProperties(
                 new W.TableCellWidth { Width = textColumn.ToString(), Type = W.TableWidthUnitValues.Dxa },
                 new W.TableCellVerticalAlignment { Val = W.TableVerticalAlignmentValues.Bottom }),
-            StyledParagraph(text, 14, MutedInk, letterSpacing: 8, spaceAfter: 0));
+            StyledParagraph(text, 14, MutedInk, letterSpacing: 8, spaceAfter: 0, font: SansFont));
 
         var logoCell = new W.TableCell(
             new W.TableCellProperties(
@@ -834,6 +865,10 @@ internal static class OpenXmlReportBuilder
                 new W.Justification { Val = W.JustificationValues.Right }),
             new W.Run(drawing));
     }
+
+    /// <summary>A typeface, named for every script Word asks about rather than only for ASCII.</summary>
+    private static W.RunFonts Fonts(string face) =>
+        new() { Ascii = face, HighAnsi = face, ComplexScript = face };
 
     /// <summary>No borders at all — the default, stated explicitly so the intent is visible.</summary>
     private static W.TableBorders NoBorders() => new(
