@@ -66,23 +66,67 @@ public class CommitteeReportExporter : ICommitteeReportExporter
     /// </summary>
     private static byte[] ExportDocx(CommitteeReportDto report)
     {
+        var branded = BrandedLayout(report);
+
+        if (branded is null)
+        {
+            return OpenXmlReportBuilder.BuildDocx(report, report.Sections, StirlingPurple, TextSecondary);
+        }
+
+        return branded.Definition is null
+            ? OpenXmlReportBuilder.BuildStatusReportDocx(
+                report, report.Sections, StirlingPurple, StirlingGreen, CouncilLogo.Png)
+            : OpenXmlReportBuilder.BuildStageDocumentDocx(
+                report, branded.Definition, report.Sections, StirlingPurple, StirlingGreen,
+                CouncilLogo.Png);
+    }
+
+    /// <summary>
+    /// Which documents get the branded layout, and the stage definition where there is one.
+    ///
+    /// Shared by the Word and PDF paths deliberately. They had drifted — the PDF kept the plain
+    /// layout and the pre-logo palette long after the Word version moved on, so the same report
+    /// looked like two different documents depending on which button was pressed. Deciding once
+    /// means a report type cannot be branded in one format and not the other.
+    ///
+    /// Null means the plain layout. A null <c>Definition</c> inside a non-null result means the
+    /// status report, which is branded but is not a RIBA stage document.
+    /// </summary>
+    private sealed record BrandedDocument(DocumentDefinition? Definition);
+
+    private static BrandedDocument? BrandedLayout(CommitteeReportDto report)
+    {
         if (report.ReportType == nameof(CommitteeReportType.StatusReport))
         {
-            return OpenXmlReportBuilder.BuildStatusReportDocx(
-                report, report.Sections, StirlingPurple, StirlingGreen, CouncilLogo.Png);
+            return new BrandedDocument(null);
         }
 
-        if (Enum.TryParse<CommitteeReportType>(report.ReportType, out var type)
-            && StageDocuments.Find(type) is { } definition)
-        {
-            return OpenXmlReportBuilder.BuildStageDocumentDocx(
-                report, definition, report.Sections, StirlingPurple, StirlingGreen, CouncilLogo.Png);
-        }
-
-        return OpenXmlReportBuilder.BuildDocx(report, report.Sections, StirlingPurple, TextSecondary);
+        // An unrecognised type falls through to the plain layout rather than throwing: a report
+        // type added to the enum without a layout should still export.
+        return Enum.TryParse<CommitteeReportType>(report.ReportType, out var type)
+            && StageDocuments.Find(type) is { } definition
+                ? new BrandedDocument(definition)
+                : null;
     }
 
     private byte[] ExportPdf(CommitteeReportDto report)
+    {
+        if (BrandedLayout(report) is { } branded)
+        {
+            return PdfReportBuilder.Build(
+                report, branded.Definition, report.Sections, StirlingPurple, StirlingGreen,
+                CouncilLogo.Png);
+        }
+
+        return ExportPlainPdf(report);
+    }
+
+    /// <summary>
+    /// The heading-and-paragraph layout committee papers have always had. Unchanged: the restyle
+    /// was asked for on the council's status report and the stage documents, not as a house style
+    /// imposed on everything the platform produces.
+    /// </summary>
+    private byte[] ExportPlainPdf(CommitteeReportDto report)
     {
         var document = Document.Create(container =>
         {
