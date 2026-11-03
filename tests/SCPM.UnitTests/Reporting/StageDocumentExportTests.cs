@@ -286,15 +286,31 @@ public class StageDocumentExportTests
     }
 
     [Fact]
-    public void Gives_no_other_document_a_decision_panel()
+    public void Gives_a_closing_panel_only_to_documents_that_certify_or_decide()
     {
-        // The panel is specific to recording a decision. On a Project Brief it would invite
-        // someone to sign off a document that is not a decision.
-        foreach (var (type, definition) in StageDocuments.All)
+        // A closing panel is a field someone completes and signs. It belongs on a document whose
+        // purpose is to record an outcome, and nowhere else: on a Project Brief or a Lessons
+        // Learned Report it would invite sign-off of something that is not a decision.
+        //
+        // Listed explicitly rather than counted, so a new document cannot quietly acquire one.
+        var expected = new[]
         {
-            if (type == CommitteeReportType.StageGateApproval) continue;
-            definition.ClosingPanel.Should().BeNull($"{type} records no decision");
-        }
+            CommitteeReportType.StageGateApproval,
+            CommitteeReportType.PaymentCertificate,
+            CommitteeReportType.ChangeInstruction,
+            CommitteeReportType.PracticalCompletionCertificate,
+            CommitteeReportType.HealthAndSafetyFileIndex,
+        };
+
+        StageDocuments.All
+            .Where(d => d.Definition.ClosingPanel is not null)
+            .Select(d => d.Type)
+            .Should().BeEquivalentTo(expected);
+
+        // And every panel that exists has somewhere to write: three labelled fields.
+        StageDocuments.All
+            .Where(d => d.Definition.ClosingPanel is not null)
+            .Should().OnlyContain(d => d.Definition.ClosingPanel!.Count == 3);
     }
 
     [Fact]

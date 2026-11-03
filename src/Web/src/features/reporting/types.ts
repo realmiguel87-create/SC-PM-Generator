@@ -13,7 +13,24 @@ export type CommitteeReportType =
   | "ProjectBrief"
   | "FeasibilityStudy"
   | "ProjectExecutionPlan"
-  | "StageGateApproval";
+  | "StageGateApproval"
+  | "ConceptDesignReport"
+  | "OutlineCostPlan"
+  | "SpatialCoordinationReport"
+  | "PlanningApplicationSummary"
+  | "DevelopedCostPlan"
+  | "TechnicalDesignReport"
+  | "TenderReport"
+  | "PreConstructionInformation"
+  | "ConstructionProgressReport"
+  | "PaymentCertificate"
+  | "ChangeInstruction"
+  | "PracticalCompletionCertificate"
+  | "HandoverAndCloseOutReport"
+  | "HealthAndSafetyFileIndex"
+  | "PostOccupancyEvaluation"
+  | "FinalAccountStatement"
+  | "LessonsLearnedReport";
 export type CommitteeReportStatus = "Draft" | "Approved" | "Submitted";
 export type ReportExportFormat = "Pdf" | "Xlsx" | "Csv" | "Json" | "Docx" | "Pptx";
 

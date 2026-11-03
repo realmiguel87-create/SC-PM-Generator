@@ -45,6 +45,53 @@ const REPORT_GROUPS: { group: string; types: { value: CommitteeReportType; label
     group: "Governance",
     types: [{ value: "StageGateApproval", label: "Stage Gate Approval Report" }],
   },
+  {
+    group: "RIBA Stage 2 — Concept Design",
+    types: [
+      { value: "ConceptDesignReport", label: "Concept Design Report" },
+      { value: "OutlineCostPlan", label: "Outline Cost Plan" },
+    ],
+  },
+  {
+    group: "RIBA Stage 3 — Spatial Coordination",
+    types: [
+      { value: "SpatialCoordinationReport", label: "Spatial Coordination Report" },
+      { value: "PlanningApplicationSummary", label: "Planning Application Summary" },
+      { value: "DevelopedCostPlan", label: "Developed Cost Plan" },
+    ],
+  },
+  {
+    group: "RIBA Stage 4 — Technical Design",
+    types: [
+      { value: "TechnicalDesignReport", label: "Technical Design Report" },
+      { value: "TenderReport", label: "Tender Report and Recommendation" },
+      { value: "PreConstructionInformation", label: "Pre-Construction Information" },
+    ],
+  },
+  {
+    group: "RIBA Stage 5 — Manufacturing and Construction",
+    types: [
+      { value: "ConstructionProgressReport", label: "Construction Progress Report" },
+      { value: "PaymentCertificate", label: "Payment Certificate" },
+      { value: "ChangeInstruction", label: "Change Instruction" },
+    ],
+  },
+  {
+    group: "RIBA Stage 6 — Handover",
+    types: [
+      { value: "PracticalCompletionCertificate", label: "Practical Completion Certificate" },
+      { value: "HandoverAndCloseOutReport", label: "Handover and Close-Out Report" },
+      { value: "HealthAndSafetyFileIndex", label: "Health and Safety File Index" },
+    ],
+  },
+  {
+    group: "RIBA Stage 7 — Use",
+    types: [
+      { value: "PostOccupancyEvaluation", label: "Post-Occupancy Evaluation" },
+      { value: "FinalAccountStatement", label: "Final Account Statement" },
+      { value: "LessonsLearnedReport", label: "Lessons Learned Report" },
+    ],
+  },
 ];
 
 const REPORT_LABELS = new Map(

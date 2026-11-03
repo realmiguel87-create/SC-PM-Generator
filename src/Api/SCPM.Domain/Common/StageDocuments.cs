@@ -50,7 +50,7 @@ public record DocumentDefinition(
 /// Every heading carries a prompt. A template whose sections are only headings gets filled in
 /// inconsistently by different authors, which is the problem these are meant to solve.
 /// </summary>
-public static class StageDocuments
+public static partial class StageDocuments
 {
     private const string Stage0 = "Infrastructure Delivery · RIBA Stage 0 — Strategic Definition";
     private const string Stage1 = "Infrastructure Delivery · RIBA Stage 1 — Preparation and Briefing";
@@ -299,15 +299,33 @@ public static class StageDocuments
     /// The gate report sits last because it is not part of the Stage 0–1 sequence: it recurs at
     /// every stage boundary, so no single position in that order is right for it.
     /// </summary>
-    public static readonly IReadOnlyList<(CommitteeReportType Type, DocumentDefinition Definition)> All =
-    [
-        (CommitteeReportType.ProjectMandate, ProjectMandate),
-        (CommitteeReportType.StrategicBusinessCase, StrategicBusinessCase),
-        (CommitteeReportType.ProjectBrief, ProjectBrief),
-        (CommitteeReportType.FeasibilityStudy, FeasibilityStudy),
-        (CommitteeReportType.ProjectExecutionPlan, ProjectExecutionPlan),
-        (CommitteeReportType.StageGateApproval, StageGateApproval),
-    ];
+    private static readonly Lazy<IReadOnlyList<(CommitteeReportType Type, DocumentDefinition Definition)>> AllLazy =
+        new(() =>
+        [
+            (CommitteeReportType.ProjectMandate, ProjectMandate),
+            (CommitteeReportType.StrategicBusinessCase, StrategicBusinessCase),
+            (CommitteeReportType.ProjectBrief, ProjectBrief),
+            (CommitteeReportType.FeasibilityStudy, FeasibilityStudy),
+            (CommitteeReportType.ProjectExecutionPlan, ProjectExecutionPlan),
+            (CommitteeReportType.StageGateApproval, StageGateApproval),
+            .. Delivery,
+        ]);
+
+    /// <summary>
+    /// Every document, in the order a project meets it.
+    ///
+    /// Built lazily rather than as a field initialiser. The Stage 2–7 definitions live in another
+    /// file of this partial class, and static field initialisation order across the files of a
+    /// partial type is compilation order — not textual order — so a field initialiser here could
+    /// read Delivery before it was assigned and silently produce a catalogue missing seventeen
+    /// documents. The compiler warns about exactly this; deferring until first access removes the
+    /// hazard rather than suppressing the warning.
+    ///
+    /// The gate report sits after the Stage 0–1 pack and before Stage 2 because it recurs at every
+    /// stage boundary: no single position is right for it, and that one is the least wrong.
+    /// </summary>
+    public static IReadOnlyList<(CommitteeReportType Type, DocumentDefinition Definition)> All =>
+        AllLazy.Value;
 
     /// <summary>
     /// The definition for a stage document, or null for a report type that is not one. Null rather

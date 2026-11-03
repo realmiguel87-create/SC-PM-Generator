@@ -46,7 +46,29 @@ public enum CommitteeReportType
     /// The record of a stage gate decision. Used at every stage boundary rather than at one, so
     /// unlike the documents above its RIBA stage comes from the report and not from its type.
     /// </summary>
-    StageGateApproval
+    StageGateApproval,
+
+    // RIBA Stages 2-7, in the order a project meets them. Four of these are certificates or
+    // instructions rather than narrative documents — PaymentCertificate, ChangeInstruction,
+    // PracticalCompletionCertificate and HealthAndSafetyFileIndex — and carry a closing panel of
+    // labelled fields for what they certify.
+    ConceptDesignReport,
+    OutlineCostPlan,
+    SpatialCoordinationReport,
+    PlanningApplicationSummary,
+    DevelopedCostPlan,
+    TechnicalDesignReport,
+    TenderReport,
+    PreConstructionInformation,
+    ConstructionProgressReport,
+    PaymentCertificate,
+    ChangeInstruction,
+    PracticalCompletionCertificate,
+    HandoverAndCloseOutReport,
+    HealthAndSafetyFileIndex,
+    PostOccupancyEvaluation,
+    FinalAccountStatement,
+    LessonsLearnedReport
 }
 
 public enum CommitteeReportStatus
