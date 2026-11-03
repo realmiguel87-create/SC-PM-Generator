@@ -40,7 +40,13 @@ public enum CommitteeReportType
     FeasibilityStudy,
 
     /// <summary>RIBA Stage 1 — how the project will be run: governance, controls, and by whom.</summary>
-    ProjectExecutionPlan
+    ProjectExecutionPlan,
+
+    /// <summary>
+    /// The record of a stage gate decision. Used at every stage boundary rather than at one, so
+    /// unlike the documents above its RIBA stage comes from the report and not from its type.
+    /// </summary>
+    StageGateApproval
 }
 
 public enum CommitteeReportStatus

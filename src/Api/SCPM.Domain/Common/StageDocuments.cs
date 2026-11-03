@@ -15,11 +15,19 @@ namespace SCPM.Domain.Common;
 /// stage: a Project Brief is a Stage 1 document for its whole life, including when it is reread
 /// at Stage 5 to check what was asked for.
 /// </param>
+/// <param name="ClosingPanel">
+/// Labels for a panel below the sections, or null where a document has none.
+///
+/// Only the gate report uses one. A decision document has to carry the decision as a record —
+/// outcome, who took it, when — and burying that in prose is how a governance file ends up unable
+/// to answer "who approved this?" without someone reading three pages.
+/// </param>
 public record DocumentDefinition(
     string Eyebrow,
     string Title,
     string RibaStage,
-    IReadOnlyList<ReportSection> Sections);
+    IReadOnlyList<ReportSection> Sections,
+    IReadOnlyList<string>? ClosingPanel = null);
 
 /// <summary>
 /// The RIBA Stage 0–1 governance pack: the five documents a capital project needs before anything
@@ -233,8 +241,63 @@ public static class StageDocuments
         ]);
 
     /// <summary>
+    /// The record of a stage gate decision — the document the council's governance actually turns
+    /// on, and the only one here used at every stage rather than at one.
+    ///
+    /// Two things make it different from the rest of the pack. Its RIBA stage is not fixed: the
+    /// same document serves the Stage 1 gate and the Stage 4 gate, so the stage comes from the
+    /// report rather than from this definition, which is why <see cref="DocumentDefinition.RibaStage"/>
+    /// is empty here. And it closes with a decision panel, because its purpose is to record an
+    /// outcome and not only to argue for one.
+    ///
+    /// The sections follow the order an approver reads in: what is being asked, what evidence
+    /// supports it, where the project stands on scope, cost, programme and risk, what the approval
+    /// would be conditional on, and only then the recommendation. A recommendation placed before
+    /// its evidence invites the evidence to be skipped.
+    /// </summary>
+    public static readonly DocumentDefinition StageGateApproval = new(
+        "Infrastructure Delivery · Stage Gate Approval",
+        "Stage Gate Approval Report",
+        string.Empty,
+        [
+            new("decision-sought", "Gate and Decision Sought",
+                "Which gate this is, which stage the project is asking to leave and which it is "
+                + "asking to enter, and the specific authority sought — including any spend being "
+                + "released."),
+            new("deliverables", "Stage Deliverables and Evidence",
+                "What the stage was required to produce, what has been produced, and where it is "
+                + "held. Note anything outstanding and why it does not prevent the gate."),
+            new("scope", "Scope Position",
+                "The scope as it now stands against the scope last approved. Any change should be "
+                + "identifiable here rather than discovered later in a cost variance."),
+            new("cost", "Cost Position",
+                "Approved budget, current forecast, variance and its causes. State the confidence "
+                + "in the forecast and what it still depends on."),
+            new("programme", "Programme Position",
+                "Current forecast against the approved baseline, the slip if any, and what caused "
+                + "it. Say whether a rebaseline is being sought as part of this decision."),
+            new("risks", "Risks and Issues",
+                "The principal risks carried into the next stage, their owners, and anything the "
+                + "approver is being asked to accept rather than mitigate."),
+            new("conditions", "Conditions",
+                "Anything the approval would depend on, written so that each condition can later "
+                + "be judged met or unmet. \"Subject to funding\" cannot; \"subject to Committee "
+                + "approving the £2.1m allocation on 14 March\" can."),
+            new("recommendation", "Recommendation",
+                "What the approver is asked to decide, stated as a decision they can take."),
+            new("decision-record", "Decision and Rationale",
+                "Completed by the approver. The decision taken, and the reasoning — particularly "
+                + "where it departs from the recommendation, which is precisely the case a later "
+                + "reader will need explained."),
+        ],
+        ClosingPanel: ["Decision", "Approved By", "Decision Date"]);
+
+    /// <summary>
     /// The pack, in the order a project meets it. Ordered so a caller listing the available
     /// documents presents them as a sequence rather than alphabetically.
+    ///
+    /// The gate report sits last because it is not part of the Stage 0–1 sequence: it recurs at
+    /// every stage boundary, so no single position in that order is right for it.
     /// </summary>
     public static readonly IReadOnlyList<(CommitteeReportType Type, DocumentDefinition Definition)> All =
     [
@@ -243,6 +306,7 @@ public static class StageDocuments
         (CommitteeReportType.ProjectBrief, ProjectBrief),
         (CommitteeReportType.FeasibilityStudy, FeasibilityStudy),
         (CommitteeReportType.ProjectExecutionPlan, ProjectExecutionPlan),
+        (CommitteeReportType.StageGateApproval, StageGateApproval),
     ];
 
     /// <summary>

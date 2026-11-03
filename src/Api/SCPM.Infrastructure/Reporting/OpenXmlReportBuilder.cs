@@ -294,6 +294,7 @@ internal static class OpenXmlReportBuilder
             title: "Programme/Project Status Report",
             bandDate: null,
             facts: StatusReportFacts(report),
+            closingPanel: null,
             footer: "Doc No: PD.01.25      Issued by: Project Delivery      Date: Jun-17      Version: 01");
 
     /// <summary>
@@ -324,6 +325,7 @@ internal static class OpenXmlReportBuilder
             title: definition.Title,
             bandDate: FormatReportDate(report),
             facts: StageDocumentFacts(report, definition),
+            closingPanel: definition.ClosingPanel,
             footer: $"{definition.Title}      Doc No: [to be assigned]      "
                   + "Issued by: Project Delivery      Version: 01");
 
@@ -340,6 +342,7 @@ internal static class OpenXmlReportBuilder
         string title,
         string? bandDate,
         IReadOnlyList<(string Label, string Value)> facts,
+        IReadOnlyList<string>? closingPanel,
         string footer)
     {
         using var stream = new MemoryStream();
@@ -360,6 +363,15 @@ internal static class OpenXmlReportBuilder
             body.Append(FactsPanel(facts));
             body.Append(Spacer(360));
             body.Append(SectionsTable(sections, green, bulletNumberId));
+
+            if (closingPanel is { Count: > 0 })
+            {
+                // Blank values: the panel is where an approver writes the outcome, so a template
+                // carries the labels and the space, not a pre-filled decision.
+                body.Append(Spacer(360));
+                body.Append(FactsPanel(
+                    closingPanel.Select(l => (l, string.Empty)).ToList(), writingSpace: true));
+            }
 
             main.Document = new W.Document(body);
             AppendDocumentControlFooter(main, footer, purple, logo);
@@ -389,7 +401,7 @@ internal static class OpenXmlReportBuilder
     [
         ("Project / Programme", report.ProjectName),
         ("Project ID Ref", report.ProjectRef),
-        ("RIBA Stage", definition.RibaStage),
+        ("RIBA Stage", report.RibaStage ?? definition.RibaStage),
         ("Project Sponsor", report.SponsorName ?? string.Empty),
         ("Project Manager", report.ProjectManagerName ?? string.Empty),
         ("Budget", FormatBudget(report)),
@@ -513,7 +525,8 @@ internal static class OpenXmlReportBuilder
     /// The facts, in a tinted panel: three columns, shaded on every cell so the block reads as one
     /// field rather than six boxes, with no borders anywhere.
     /// </summary>
-    private static W.Table FactsPanel(IReadOnlyList<(string Label, string Value)> facts)
+    private static W.Table FactsPanel(
+        IReadOnlyList<(string Label, string Value)> facts, bool writingSpace = false)
     {
         var column = ContentWidth / 3;
 
@@ -539,7 +552,7 @@ internal static class OpenXmlReportBuilder
 
             foreach (var (label, value) in row)
             {
-                tableRow.Append(new W.TableCell(
+                var cell = new W.TableCell(
                     new W.TableCellProperties(
                         new W.TableCellWidth { Width = column.ToString(), Type = W.TableWidthUnitValues.Dxa },
                         new W.Shading
@@ -554,7 +567,17 @@ internal static class OpenXmlReportBuilder
                         spaceAfter: 20, font: SansFont),
                     StyledParagraph(
                         string.IsNullOrWhiteSpace(value) ? " " : value,
-                        18, BodyInk, bold: true, spaceAfter: 0, font: SansFont)));
+                        18, BodyInk, bold: true, spaceAfter: 0, font: SansFont));
+
+                // A panel an approver completes needs somewhere to write. Without this the cells
+                // are one line tall, which is fine for a fact that is already known and useless
+                // for a decision that is not.
+                if (writingSpace)
+                {
+                    cell.Append(Spacer(520));
+                }
+
+                tableRow.Append(cell);
             }
 
             // A short final row would otherwise leave the tint ending mid-way across the page.

@@ -111,6 +111,15 @@ internal static class PdfReportBuilder
                     column.Item().PaddingTop(16).Element(e => FactsPanel(e, facts));
 
                     column.Item().PaddingTop(18).Element(e => Sections(e, sections, green));
+
+                    if (definition?.ClosingPanel is { Count: > 0 } closing)
+                    {
+                        // Blank values: the panel is where an approver writes the outcome, so a
+                        // template carries the labels and the space, not a pre-filled decision.
+                        column.Item().PaddingTop(18).Element(e =>
+                            FactsPanel(e, closing.Select(l => (l, string.Empty)).ToList(),
+                                writingSpace: true));
+                    }
                 });
 
                 page.Footer().Element(e => Footer(e, footerText, purple, logo));
@@ -124,7 +133,10 @@ internal static class PdfReportBuilder
     /// The facts in a tinted panel, three to a row — one tinted block rather than six boxes, so
     /// the eye takes it as a single field.
     /// </summary>
-    private static void FactsPanel(IContainer container, IReadOnlyList<(string Label, string Value)> facts)
+    private static void FactsPanel(
+        IContainer container,
+        IReadOnlyList<(string Label, string Value)> facts,
+        bool writingSpace = false)
     {
         container.Background(PanelTint).Padding(11).Column(column =>
         {
@@ -138,7 +150,12 @@ internal static class PdfReportBuilder
                 {
                     foreach (var (label, value) in row)
                     {
-                        line.RelativeItem().PaddingRight(10).Column(cell =>
+                        // A panel an approver completes needs somewhere to write. Without the
+                        // minimum height the cells are one line tall, which is fine for a fact
+                        // that is already known and useless for a decision that is not.
+                        line.RelativeItem().PaddingRight(10)
+                            .MinHeight(writingSpace ? 38 : 0)
+                            .Column(cell =>
                         {
                             // Label small, spaced and grey; value larger and bold. The eye should
                             // land on the answer, not the question.
@@ -247,7 +264,7 @@ internal static class PdfReportBuilder
         // report's date belongs among its facts, a stage document's belongs under its title.
         var third = definition is null
             ? ("Report Date", FormatDate(report))
-            : ("RIBA Stage", definition.RibaStage);
+            : ("RIBA Stage", report.RibaStage ?? definition.RibaStage);
 
         return
         [

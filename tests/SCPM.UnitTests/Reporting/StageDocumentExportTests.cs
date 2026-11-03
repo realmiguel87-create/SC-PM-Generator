@@ -226,12 +226,75 @@ public class StageDocumentExportTests
         var text = document.MainDocumentPart!.Document.Body!.InnerText;
 
         text.Should().Contain(definition.Title);
-        text.Should().Contain(definition.RibaStage);
+
+        // The gate report is used at every stage boundary, so its definition fixes no stage and
+        // the value comes from the report instead — see the test below.
+        if (definition.RibaStage.Length > 0) text.Should().Contain(definition.RibaStage);
         text.Should().Contain("ID00001");
         text.Should().Contain("3 November 2026");
 
         // Sterling explicitly, not the server's culture.
         text.Should().Contain("£412,500.00");
+    }
+
+    [Fact]
+    public void Takes_the_gate_reports_stage_from_the_report_not_its_type()
+    {
+        // Every other document in the pack belongs to one stage for its whole life. A stage gate
+        // report serves the Stage 1 gate and the Stage 4 gate alike, so a stage fixed by its type
+        // would be wrong on every use but one.
+        StageDocuments.StageGateApproval.RibaStage.Should().BeEmpty();
+
+        var report = Document(CommitteeReportType.StageGateApproval);
+        report.RibaStage = "Stage 2 — Concept Design";
+
+        using var stream = new MemoryStream(Export(report));
+        using var document = WordprocessingDocument.Open(stream, false);
+
+        document.MainDocumentPart!.Document.Body!.InnerText
+            .Should().Contain("Stage 2 — Concept Design");
+    }
+
+    [Fact]
+    public void Closes_the_gate_report_with_a_decision_panel()
+    {
+        using var stream = new MemoryStream(Export(Document(CommitteeReportType.StageGateApproval)));
+        using var document = WordprocessingDocument.Open(stream, false);
+        var body = document.MainDocumentPart!.Document.Body!;
+
+        // A decision document has to carry its decision as a record — outcome, who, when. Buried
+        // in prose, a governance file cannot answer "who approved this?" without someone reading
+        // three pages.
+        var text = body.InnerText;
+        text.Should().Contain("Decision");
+        text.Should().Contain("Approved By");
+        text.Should().Contain("Decision Date");
+
+        // Nine tinted cells: six in the facts panel at the top and three in the decision panel
+        // at the foot, so the decision reads as a field to complete rather than as another
+        // heading.
+        body.Descendants<W.Shading>().Select(sh => sh.Fill!.Value)
+            .Count(f => f == PanelTint).Should().Be(9);
+
+        // And the decision cells have room to write in. Found by rendering the page and looking:
+        // at one line tall the panel is a label with nowhere to put an answer, which is useless
+        // on the one document in the pack that exists to be completed by its reader.
+        var decisionCell = body.Descendants<W.TableCell>()
+            .First(c => c.InnerText.Contains("Approved By"));
+
+        decisionCell.Elements<W.Paragraph>().Count().Should().BeGreaterThan(2);
+    }
+
+    [Fact]
+    public void Gives_no_other_document_a_decision_panel()
+    {
+        // The panel is specific to recording a decision. On a Project Brief it would invite
+        // someone to sign off a document that is not a decision.
+        foreach (var (type, definition) in StageDocuments.All)
+        {
+            if (type == CommitteeReportType.StageGateApproval) continue;
+            definition.ClosingPanel.Should().BeNull($"{type} records no decision");
+        }
     }
 
     [Fact]

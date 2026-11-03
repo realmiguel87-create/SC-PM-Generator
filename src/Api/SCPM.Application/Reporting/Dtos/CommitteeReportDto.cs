@@ -24,6 +24,15 @@ public class ReportSectionDto
 
 public class CommitteeReportDto
 {
+    /// <summary>
+    /// The RIBA stage this report concerns, where the report type does not fix it.
+    ///
+    /// The five Stage 0–1 documents each belong to one stage for their whole life, so their stage
+    /// comes from their definition. A stage gate report is used at every boundary, so its stage is
+    /// a property of the report. Null means "use the definition's", which is every other type.
+    /// </summary>
+    public string? RibaStage { get; set; }
+
     public Guid Id { get; set; }
     public Guid ProjectId { get; set; }
     public string ProjectName { get; set; } = default!;
