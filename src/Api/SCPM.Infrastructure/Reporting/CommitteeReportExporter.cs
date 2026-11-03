@@ -22,14 +22,14 @@ namespace SCPM.Infrastructure.Reporting;
 /// </summary>
 public class CommitteeReportExporter : ICommitteeReportExporter
 {
-    // Taken from the council's logo, confirmed by the service. The green is the second brand
-    // colour and carries the standing text — headings and rules use the purple.
-    private static readonly string StirlingPurple = "#675A8F";
-    // Deepened from the logo's #4F8377, which gives ~4.2:1 against white — below the 4.5:1
-    // minimum at the size these documents set headings and numerals. #3D665C is ~6.2:1 and still
-    // reads as the same green. The council has accessibility duties under the Equality Act, so
-    // this is a compliance point rather than a preference.
-    private static readonly string StirlingGreen = "#3D665C";
+    // Measured from the logo file itself, not sampled by eye. The values previously here
+    // (#675A8F and #4F8377) are lighter than the mark: putting the real logo in the footer under
+    // a #675A8F strip would have shown two different purples on one page. #4F8377 was also
+    // 4.33:1 against white, under the 4.5:1 minimum for normal text — the logo's own green is
+    // 6.29:1, so using the real colour fixes the accessibility gap rather than trading against it.
+    private static readonly string StirlingPurple = "#3E2880";
+    private static readonly string StirlingGreen = "#006D5B";
+
     private static readonly string TextSecondary = "#5C6770";
 
     static CommitteeReportExporter()
@@ -69,14 +69,14 @@ public class CommitteeReportExporter : ICommitteeReportExporter
         if (report.ReportType == nameof(CommitteeReportType.StatusReport))
         {
             return OpenXmlReportBuilder.BuildStatusReportDocx(
-                report, report.Sections, StirlingPurple, StirlingGreen);
+                report, report.Sections, StirlingPurple, StirlingGreen, CouncilLogo.Png);
         }
 
         if (Enum.TryParse<CommitteeReportType>(report.ReportType, out var type)
             && StageDocuments.Find(type) is { } definition)
         {
             return OpenXmlReportBuilder.BuildStageDocumentDocx(
-                report, definition, report.Sections, StirlingPurple, StirlingGreen);
+                report, definition, report.Sections, StirlingPurple, StirlingGreen, CouncilLogo.Png);
         }
 
         return OpenXmlReportBuilder.BuildDocx(report, report.Sections, StirlingPurple, TextSecondary);

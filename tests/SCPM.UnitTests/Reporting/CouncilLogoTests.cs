@@ -58,7 +58,7 @@ public class CouncilLogoTests
 
     private static byte[] Export(byte[]? logo) =>
         OpenXmlReportBuilder.BuildStageDocumentDocx(
-            Mandate(), StageDocuments.ProjectMandate, Mandate().Sections, "#675A8F", "#3D665C", logo);
+            Mandate(), StageDocuments.ProjectMandate, Mandate().Sections, "#3E2880", "#006D5B", logo);
 
     [Fact]
     public void Reads_the_pixel_dimensions_from_the_png_header()
@@ -96,14 +96,57 @@ public class CouncilLogoTests
     }
 
     [Fact]
-    public void Renders_a_text_only_footer_when_no_logo_is_embedded()
+    public void Ships_the_council_logo_as_an_embedded_resource()
+    {
+        var logo = CouncilLogo.Png;
+
+        // The resource name is a string, and a rename or a dropped EmbeddedResource entry would
+        // silently return null — producing documents with no logo and no error anywhere.
+        logo.Should().NotBeNull("the logo is embedded in SCPM.Infrastructure");
+
+        var dimensions = CouncilLogo.Dimensions(logo!);
+        dimensions.Should().NotBeNull("the embedded resource must be a readable PNG");
+
+        var (width, height) = dimensions!.Value;
+
+        // The mark is a roundel, so it should be close to square. A wildly different ratio means
+        // the uncropped original — which carries ~60% empty background — has been embedded by
+        // mistake, and would print as a tiny logo adrift in white space.
+        ((double)width / height).Should().BeInRange(0.8, 1.25);
+
+        // Enough resolution to print at 11mm without visible pixellation: 11mm at 300dpi is 130px.
+        height.Should().BeGreaterThan(200);
+    }
+
+    [Fact]
+    public void Puts_the_real_logo_into_a_document_exported_through_the_exporter()
+    {
+        // The path an actual document takes. The tests above drive the builder directly with a
+        // generated PNG, which would still pass if the exporter never passed the logo along.
+        var bytes = new CommitteeReportExporter()
+            .ExportAsync(Mandate(), SCPM.Application.Common.Interfaces.ReportExportFormat.Docx,
+                CancellationToken.None)
+            .GetAwaiter().GetResult();
+
+        using var stream = new MemoryStream(bytes);
+        using var document = WordprocessingDocument.Open(stream, false);
+
+        var footerPart = document.MainDocumentPart!.FooterParts.Single();
+
+        footerPart.ImageParts.Should().ContainSingle();
+        footerPart.Footer.Descendants<W.Drawing>().Should().ContainSingle();
+    }
+
+    [Fact]
+    public void Renders_a_text_only_footer_when_no_logo_is_supplied()
     {
         using var stream = new MemoryStream(Export(logo: null));
         using var document = WordprocessingDocument.Open(stream, false);
 
         var footerPart = document.MainDocumentPart!.FooterParts.Single();
 
-        // Today's state for every document. Absent is supported, not an error.
+        // Absent is still a supported state — the builder takes the logo from its caller rather
+        // than reaching for the embedded one, so this is genuinely "no logo" and not a fallback.
         footerPart.ImageParts.Should().BeEmpty();
         footerPart.Footer.Descendants<W.Drawing>().Should().BeEmpty();
         footerPart.Footer.InnerText.Should().Contain("[to be assigned]");

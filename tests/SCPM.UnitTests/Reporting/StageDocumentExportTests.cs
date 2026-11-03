@@ -29,8 +29,8 @@ namespace SCPM.UnitTests.Reporting;
 /// </summary>
 public class StageDocumentExportTests
 {
-    private const string Purple = "675A8F";
-    private const string Green = "3D665C";
+    private const string Purple = "3E2880";
+    private const string Green = "006D5B";
     private const string PanelTint = "F4F2F8";
 
     private static CommitteeReportDto Document(CommitteeReportType type, bool filled = false)

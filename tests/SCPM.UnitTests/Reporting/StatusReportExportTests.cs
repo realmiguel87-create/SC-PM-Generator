@@ -28,13 +28,14 @@ namespace SCPM.UnitTests.Reporting;
 /// </summary>
 public class StatusReportExportTests
 {
-    private const string Purple = "675A8F";
-
     /// <summary>
-    /// Deepened from the logo's #4F8377, which is ~4.2:1 against white — under the 4.5:1 minimum
-    /// at the size these documents set numerals and headings.
+    /// Measured from the logo file, not sampled by eye. #675A8F and #4F8377 were in use before
+    /// the logo arrived as a file; neither is the mark's actual colour, and #4F8377 was 4.33:1
+    /// against white — under the 4.5:1 minimum for normal text.
     /// </summary>
-    private const string Green = "3D665C";
+    private const string Purple = "3E2880";
+
+    private const string Green = "006D5B";
 
     private const string BodyInk = "1F1B2A";
 

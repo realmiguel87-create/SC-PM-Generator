@@ -259,7 +259,7 @@ internal static class OpenXmlReportBuilder
         IReadOnlyList<ReportSectionDto> sections,
         string purple,
         string green,
-        byte[]? logo = null) =>
+        byte[]? logo) =>
         BuildBrandedDocx(
             sections,
             purple,
@@ -289,7 +289,7 @@ internal static class OpenXmlReportBuilder
         IReadOnlyList<ReportSectionDto> sections,
         string purple,
         string green,
-        byte[]? logo = null) =>
+        byte[]? logo) =>
         BuildBrandedDocx(
             sections,
             purple,
@@ -337,8 +337,7 @@ internal static class OpenXmlReportBuilder
             body.Append(SectionsTable(sections, green, bulletNumberId));
 
             main.Document = new W.Document(body);
-            // The embedded logo unless a caller supplied one — which only a test does.
-            AppendDocumentControlFooter(main, footer, purple, logo ?? CouncilLogo.Png);
+            AppendDocumentControlFooter(main, footer, purple, logo);
         }
 
         return stream.ToArray();
@@ -893,7 +892,10 @@ internal static class OpenXmlReportBuilder
             {
                 Top = 851,
                 Right = (uint)SideMargin,
-                Bottom = 851,
+                // 2.2cm, deeper than the 1.5cm it was. The footer starts 0.8cm up from the edge
+                // and the logo is 1.1cm tall, so the mark reaches 1.9cm — against the old margin
+                // it would have overlapped the last line of body text on a full page.
+                Bottom = 1247,
                 Left = (uint)SideMargin,
                 Header = 567,
                 Footer = 454,

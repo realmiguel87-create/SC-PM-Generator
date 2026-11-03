@@ -477,4 +477,20 @@ The look of all six branded documents, settled by the service picking between dr
 - [ ] PDF, XLSX, CSV and PPTX exports are untouched and still carry the old plain layout, so the formats of one document no longer match each other. Now six documents wide rather than one.
 - [ ] The canvas holds only the Project Mandate. The other five documents inherit the style by sharing the engine, which is the intent, but none of them was drawn before being built.
 
+## Phase 33 — The Logo, and What It Revealed About the Palette
+
+The logo arrived as a file for the first time, which closed the gap left open since Phase 30 and exposed a larger one nobody had looked for.
+
+- [x] **The brand colours in use were not the logo's colours.** Measured from the file: the mark is `#3E2880` purple and `#006D5B` green. The documents were using `#675A8F` and `#4F8377`, confirmed earlier as "taken from the logo" but demonstrably lighter than it. Putting the real mark in the footer under a `#675A8F` strip would have shown two different purples on one page — which is the sort of defect only ever noticed by a reader, and never explained.
+- [x] **The accessibility problem was a symptom of that, not a separate issue.** `#4F8377` is 4.33:1 against white, under the 4.5:1 minimum; Phase 32 deepened it to `#3D665C` to compensate. The logo's own green is 6.29:1 and the logo's purple is 11.54:1, so adopting the real colours fixes the contrast gap outright rather than trading design against compliance. Ratios computed, not judged by eye.
+- [x] **Background removed by un-premultiplying, not by colour-keying.** The supplied file is a `#FAFAFA` flat background; an antialiased edge pixel is `a·C + (1−a)·BG`, so alpha comes from distance to the background and the colour is recovered from it. Verified by recompositing the result onto `#FAFAFA` and diffing against the source: **maximum channel difference 0**, so the conversion is lossless rather than approximately right.
+- [x] **Cropped from 1200×630 to 458×466.** The supplied file is about 60% empty background; embedding it uncropped would have printed a tiny mark adrift in white space at any size. A test asserts the aspect ratio stays near square so the uncropped original cannot be reinstated by accident.
+- [x] **Embedded as a resource in SCPM.Infrastructure**, so a document generated on a server with no deployed content folder still gets its logo.
+- [x] **The builder no longer reaches for the logo itself.** It was taking `logo ?? CouncilLogo.Png`, which meant a test asking for "no logo" silently got the embedded one the moment a file existed. The caller supplies it; "none" means none.
+- [x] **Bottom margin deepened from 1.5cm to 2.2cm.** The footer starts 0.8cm from the edge and the mark is 1.1cm tall, reaching 1.9cm — against the old margin it would have overlapped the last line of body text on a full page. Found by arithmetic before it could be found by a reader.
+- [x] Verified in the generated package, not inferred: relationship id resolves to the image part, `[Content_Types]` declares `png`, embedded bytes are the 458×466 PNG, and the drawing extent is 396,000 EMU tall by 389,202 wide — the file's own 458:466 ratio, so it is not stretched. **190/190 unit tests**, zero `OpenXmlValidator` errors, clean under `-warnaserror`.
+- [ ] **Still nobody has opened any of this in Word.** Unchanged since Phase 30. Every claim above is measured or asserted; none is seen. The logo in particular is placed by arithmetic — 11mm is a judgement about a roundel with rim text, and only a printed page settles whether it is right.
+- [ ] The canvas in Phase 32 was drawn in the old colours. The documents now differ from the design proof that approved them, in the direction of the real mark, but the artboards were not updated to match.
+- [ ] PDF, XLSX, CSV and PPTX still carry the old plain layout and the old palette. The gap between Word and every other format is now a palette as well as a layout.
+
 Each phase is designed to be independently shippable and reviewable. Modules from Phase 2 onward follow the same Domain → Application → Infrastructure → Api → Web pattern established in Phase 1.

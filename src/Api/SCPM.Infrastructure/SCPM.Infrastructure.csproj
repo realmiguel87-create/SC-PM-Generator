@@ -46,4 +46,11 @@
     </AssemblyAttribute>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The council logo, as supplied by the service and cropped to the mark with its background
+         made transparent. Embedded rather than loaded from disk so it travels with the assembly:
+         a document generated on a server with no deployed content folder still gets its logo. -->
+    <EmbeddedResource Include="Reporting\Assets\stirling-logo.png" />
+  </ItemGroup>
+
 </Project>
