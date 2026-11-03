@@ -23,6 +23,11 @@ public class CommitteeReportConfiguration : IEntityTypeConfiguration<CommitteeRe
         // Same multiple-cascade-paths issue as DocumentVersion.Snapshot (see
         // DocumentConfiguration) — Snapshot also cascades from Project.
         builder.HasOne(r => r.Snapshot).WithMany().HasForeignKey(r => r.SnapshotId).OnDelete(DeleteBehavior.Restrict);
+
+        // Restrict for the same reason again: Gateway cascades from Project, and so does this
+        // report, so a cascading path here would be a second route to the same rows. SQL Server
+        // rejects that at CREATE TABLE with error 1785 rather than at runtime.
+        builder.HasOne(r => r.Gateway).WithMany().HasForeignKey(r => r.GatewayId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

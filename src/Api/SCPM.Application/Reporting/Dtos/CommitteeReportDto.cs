@@ -22,6 +22,18 @@ public class ReportSectionDto
     public string? Prompt { get; set; }
 }
 
+/// <summary>One labelled field of a report's closing panel — a decision record.</summary>
+public class ReportPanelFieldDto
+{
+    public string Label { get; set; } = default!;
+
+    /// <summary>
+    /// Empty where the decision has not been taken, which is the normal state of a gate report
+    /// while it is still seeking one. The document then shows the label over blank space.
+    /// </summary>
+    public string Value { get; set; } = string.Empty;
+}
+
 public class CommitteeReportDto
 {
     /// <summary>
@@ -32,6 +44,15 @@ public class CommitteeReportDto
     /// a property of the report. Null means "use the definition's", which is every other type.
     /// </summary>
     public string? RibaStage { get; set; }
+
+    /// <summary>
+    /// The decision panel at the foot of a stage gate approval report, read from the gateway's
+    /// approval rather than typed into the document.
+    ///
+    /// Empty for every other report type. Empty also means "fall back to the document
+    /// definition's labels with blank values", which is what a blank template wants.
+    /// </summary>
+    public List<ReportPanelFieldDto> ClosingPanel { get; set; } = [];
 
     public Guid Id { get; set; }
     public Guid ProjectId { get; set; }

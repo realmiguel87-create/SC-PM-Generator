@@ -112,13 +112,16 @@ internal static class PdfReportBuilder
 
                     column.Item().PaddingTop(18).Element(e => Sections(e, sections, green));
 
-                    if (definition?.ClosingPanel is { Count: > 0 } closing)
+                    // The report's own panel is the version read from the gateway's approval;
+                    // the definition's labels with blank values are what a blank template shows.
+                    var closing = report.ClosingPanel.Count > 0
+                        ? report.ClosingPanel.Select(f => (f.Label, f.Value)).ToList()
+                        : definition?.ClosingPanel?.Select(l => (l, string.Empty)).ToList();
+
+                    if (closing is { Count: > 0 })
                     {
-                        // Blank values: the panel is where an approver writes the outcome, so a
-                        // template carries the labels and the space, not a pre-filled decision.
-                        column.Item().PaddingTop(18).Element(e =>
-                            FactsPanel(e, closing.Select(l => (l, string.Empty)).ToList(),
-                                writingSpace: true));
+                        column.Item().PaddingTop(18)
+                            .Element(e => FactsPanel(e, closing, writingSpace: true));
                     }
                 });
 

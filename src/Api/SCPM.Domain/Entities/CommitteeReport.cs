@@ -23,6 +23,21 @@ public class CommitteeReport : SoftDeletableEntity
     public Guid? SnapshotId { get; set; }
     public Snapshot? Snapshot { get; set; }
 
+    /// <summary>
+    /// The gateway this report seeks a decision on, for a stage gate approval report.
+    ///
+    /// Null on every other report type. A gate report without one would be a decision document
+    /// about no particular decision, so the create command requires it for that type and rejects
+    /// it for the others.
+    ///
+    /// The point of the link is that the decision is read from the register rather than retyped
+    /// into the document. A hand-typed copy of an approval can disagree with
+    /// <see cref="Approval.Decision"/>, and a governance file that contradicts its own register is
+    /// worse than one that simply refers to it.
+    /// </summary>
+    public Guid? GatewayId { get; set; }
+    public Gateway? Gateway { get; set; }
+
     public CommitteeReportType ReportType { get; set; }
     public string Title { get; set; } = default!;
 

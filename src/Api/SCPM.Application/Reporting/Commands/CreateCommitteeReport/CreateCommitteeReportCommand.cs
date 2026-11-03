@@ -24,7 +24,8 @@ public record CreateCommitteeReportCommand(
     string Title,
     DateOnly? MeetingDate,
     DateOnly? ReportDate,
-    Guid? SnapshotId) : IRequest<Guid>;
+    Guid? SnapshotId,
+    Guid? GatewayId = null) : IRequest<Guid>;
 
 public class CreateCommitteeReportCommandHandler : IRequestHandler<CreateCommitteeReportCommand, Guid>
 {
@@ -41,6 +42,21 @@ public class CreateCommitteeReportCommandHandler : IRequestHandler<CreateCommitt
     {
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId, cancellationToken)
             ?? throw new KeyNotFoundException($"Project {request.ProjectId} not found.");
+
+        // Checked here rather than only in the validator: a gateway on another project would make
+        // the report quote a decision about something else entirely, and no amount of shape
+        // validation catches that.
+        if (request.GatewayId is { } gatewayId)
+        {
+            var belongs = await _db.Gateways.AnyAsync(
+                g => g.Id == gatewayId && g.ProjectId == request.ProjectId, cancellationToken);
+
+            if (!belongs)
+            {
+                throw new KeyNotFoundException(
+                    $"Gateway {gatewayId} does not exist on project {request.ProjectId}.");
+            }
+        }
 
         var openRiskCount = await _db.Risks.CountAsync(
             r => r.ProjectId == request.ProjectId && r.Status == RiskStatus.Open, cancellationToken);
@@ -101,6 +117,7 @@ public class CreateCommitteeReportCommandHandler : IRequestHandler<CreateCommitt
         {
             ProjectId = request.ProjectId,
             SnapshotId = request.SnapshotId,
+            GatewayId = request.GatewayId,
             ReportType = request.ReportType,
             Title = request.Title,
             MeetingDate = request.MeetingDate,

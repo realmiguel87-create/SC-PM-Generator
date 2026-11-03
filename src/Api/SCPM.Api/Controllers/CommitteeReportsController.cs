@@ -55,7 +55,13 @@ public class CommitteeReportsController : ControllerBase
         string Title,
         DateOnly? MeetingDate,
         DateOnly? ReportDate,
-        Guid? SnapshotId);
+        Guid? SnapshotId,
+        /// <summary>
+        /// Required for a stage gate approval report and rejected for every other type: that
+        /// document seeks a decision on a particular gateway, and reads its stage, approver and
+        /// outcome from it rather than from anything typed into the report.
+        /// </summary>
+        Guid? GatewayId = null);
 
     [HttpPost("api/projects/{projectId:guid}/committee-reports")]
     [Authorize(Policy = "CanWrite")]
@@ -63,7 +69,7 @@ public class CommitteeReportsController : ControllerBase
         Guid projectId, CreateCommitteeReportRequest request, CancellationToken ct)
         => Ok(await _mediator.Send(new CreateCommitteeReportCommand(
             projectId, request.ReportType, request.Title,
-            request.MeetingDate, request.ReportDate, request.SnapshotId), ct));
+            request.MeetingDate, request.ReportDate, request.SnapshotId, request.GatewayId), ct));
 
     /// <summary>
     /// Only the sections being changed need be sent. The previous shape took all ten fields, so a

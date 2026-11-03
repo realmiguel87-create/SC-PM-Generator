@@ -325,7 +325,7 @@ internal static class OpenXmlReportBuilder
             title: definition.Title,
             bandDate: FormatReportDate(report),
             facts: StageDocumentFacts(report, definition),
-            closingPanel: definition.ClosingPanel,
+            closingPanel: ClosingPanel(report, definition),
             footer: $"{definition.Title}      Doc No: [to be assigned]      "
                   + "Issued by: Project Delivery      Version: 01");
 
@@ -342,7 +342,7 @@ internal static class OpenXmlReportBuilder
         string title,
         string? bandDate,
         IReadOnlyList<(string Label, string Value)> facts,
-        IReadOnlyList<string>? closingPanel,
+        IReadOnlyList<(string Label, string Value)>? closingPanel,
         string footer)
     {
         using var stream = new MemoryStream();
@@ -369,8 +369,7 @@ internal static class OpenXmlReportBuilder
                 // Blank values: the panel is where an approver writes the outcome, so a template
                 // carries the labels and the space, not a pre-filled decision.
                 body.Append(Spacer(360));
-                body.Append(FactsPanel(
-                    closingPanel.Select(l => (l, string.Empty)).ToList(), writingSpace: true));
+                body.Append(FactsPanel(closingPanel, writingSpace: true));
             }
 
             main.Document = new W.Document(body);
@@ -379,6 +378,19 @@ internal static class OpenXmlReportBuilder
 
         return stream.ToArray();
     }
+
+    /// <summary>
+    /// The decision panel's labels and values.
+    ///
+    /// The report's own panel wins where it has one: that is the version read from the gateway's
+    /// approval. Falling back to the definition's labels with blank values is what a blank
+    /// template produces, since nothing has been decided for a document that has no project.
+    /// </summary>
+    private static IReadOnlyList<(string Label, string Value)>? ClosingPanel(
+        CommitteeReportDto report, DocumentDefinition definition) =>
+        report.ClosingPanel.Count > 0
+            ? report.ClosingPanel.Select(f => (f.Label, f.Value)).ToList()
+            : definition.ClosingPanel?.Select(l => (l, string.Empty)).ToList();
 
     /// <summary>The status report's facts block, unchanged: six cells over two rows.</summary>
     private static IReadOnlyList<(string Label, string Value)> StatusReportFacts(CommitteeReportDto report) =>

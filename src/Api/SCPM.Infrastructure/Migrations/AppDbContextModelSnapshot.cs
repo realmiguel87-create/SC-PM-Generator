@@ -367,6 +367,9 @@ namespace SCPM.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("GatewayId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -414,6 +417,8 @@ namespace SCPM.Infrastructure.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GatewayId");
 
                     b.HasIndex("ProjectId");
 
@@ -3237,6 +3242,11 @@ namespace SCPM.Infrastructure.Migrations
 
             modelBuilder.Entity("SCPM.Domain.Entities.CommitteeReport", b =>
                 {
+                    b.HasOne("SCPM.Domain.Entities.Gateway", "Gateway")
+                        .WithMany()
+                        .HasForeignKey("GatewayId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SCPM.Domain.Entities.Project", "Project")
                         .WithMany()
                         .HasForeignKey("ProjectId")
@@ -3247,6 +3257,8 @@ namespace SCPM.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("SnapshotId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Gateway");
 
                     b.Navigation("Project");
 
