@@ -4,7 +4,16 @@ export type CommitteeReportType =
   | "CabinetReport"
   | "BoardReport"
   | "CapitalProgrammeReport"
-  | "DecisionPaper";
+  | "DecisionPaper"
+  // RIBA Stage 0-1, plus the gate report, which is used at every stage boundary. Must stay in
+  // step with CommitteeReportType on the API: the server has produced these for some time, and
+  // the UI simply had no way to ask for one.
+  | "ProjectMandate"
+  | "StrategicBusinessCase"
+  | "ProjectBrief"
+  | "FeasibilityStudy"
+  | "ProjectExecutionPlan"
+  | "StageGateApproval";
 export type CommitteeReportStatus = "Draft" | "Approved" | "Submitted";
 export type ReportExportFormat = "Pdf" | "Xlsx" | "Csv" | "Json" | "Docx" | "Pptx";
 
@@ -29,6 +38,15 @@ export interface ReportSection {
 export interface CommitteeReport extends CommitteeReportListItem {
   projectId: string;
   createdDate: string;
+
+  /** The stage a gate report concerns, read from its gateway. Null on every other type. */
+  ribaStage: string | null;
+
+  /**
+   * A gate report's decision record — outcome, approver, date — read from the gateway's approval
+   * rather than typed into the document. Empty on every other type.
+   */
+  closingPanel: { label: string; value: string }[];
 
   /** The date the position is reported as at, as distinct from a committee meeting date. */
   reportDate: string | null;

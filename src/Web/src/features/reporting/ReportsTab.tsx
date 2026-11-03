@@ -3,17 +3,59 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
+import { useProject } from "@/features/projects/api";
 import { exportReportUrl, useCommitteeReport, useCommitteeReports, useCreateCommitteeReport, useSubmitCommitteeReport, useUpdateCommitteeReport } from "./api";
 import type { CommitteeReport, CommitteeReportType, ReportExportFormat } from "./types";
 
-const REPORT_TYPES: CommitteeReportType[] = [
-  "StatusReport",
-  "CommitteeReport",
-  "CabinetReport",
-  "BoardReport",
-  "CapitalProgrammeReport",
-  "DecisionPaper",
+/**
+ * The report types, grouped as a reader meets them, with the names they are called by.
+ *
+ * Labelled rather than listed raw: "StageGateApproval" in a dropdown is a leaked identifier, the
+ * same defect as printing "ApprovedWithConditions" on a council document. The value sent to the
+ * server is still the enum name.
+ */
+const REPORT_GROUPS: { group: string; types: { value: CommitteeReportType; label: string }[] }[] = [
+  {
+    group: "Reporting",
+    types: [
+      { value: "StatusReport", label: "Programme/Project Status Report" },
+      { value: "CommitteeReport", label: "Committee Paper" },
+      { value: "CabinetReport", label: "Cabinet Report" },
+      { value: "BoardReport", label: "Board Report" },
+      { value: "CapitalProgrammeReport", label: "Capital Programme Report" },
+      { value: "DecisionPaper", label: "Decision Paper" },
+    ],
+  },
+  {
+    group: "RIBA Stage 0 — Strategic Definition",
+    types: [
+      { value: "ProjectMandate", label: "Project Mandate" },
+      { value: "StrategicBusinessCase", label: "Strategic Business Case" },
+    ],
+  },
+  {
+    group: "RIBA Stage 1 — Preparation and Briefing",
+    types: [
+      { value: "ProjectBrief", label: "Project Brief" },
+      { value: "FeasibilityStudy", label: "Feasibility Study Report" },
+      { value: "ProjectExecutionPlan", label: "Project Execution Plan" },
+    ],
+  },
+  {
+    group: "Governance",
+    types: [{ value: "StageGateApproval", label: "Stage Gate Approval Report" }],
+  },
 ];
+
+const REPORT_LABELS = new Map(
+  REPORT_GROUPS.flatMap((g) => g.types).map((t) => [t.value, t.label] as const),
+);
+
+export function reportTypeLabel(type: CommitteeReportType): string {
+  // Falls back to the raw value rather than throwing: a type added to the API before this list
+  // should still render, badly named rather than not at all.
+  return REPORT_LABELS.get(type) ?? type;
+}
 // Order is deliberate: the two formats a committee officer actually edits and presents come
 // first, then the data formats. Must stay in step with ReportExportFormat on the API.
 const EXPORT_FORMATS: ReportExportFormat[] = ["Pdf", "Docx", "Pptx", "Xlsx", "Csv", "Json"];
@@ -34,7 +76,7 @@ function ReportEditor({ projectId, reportId }: { projectId: string; reportId: st
       <CardHeader className="flex-row items-center justify-between">
         <div>
           <CardTitle className="text-base font-semibold text-text-primary">{current.title}</CardTitle>
-          <p className="text-xs text-text-secondary">{current.reportType} · {current.projectRef}{current.meetingDate ? ` · ${formatDate(current.meetingDate)}` : ""}</p>
+          <p className="text-xs text-text-secondary">{reportTypeLabel(current.reportType)} · {current.projectRef}{current.meetingDate ? ` · ${formatDate(current.meetingDate)}` : ""}</p>
         </div>
         <Badge variant={statusToBadgeVariant(current.status)}>{current.status}</Badge>
       </CardHeader>
@@ -110,6 +152,19 @@ export function ReportsTab({ projectId }: { projectId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [reportType, setReportType] = useState<CommitteeReportType>("CommitteeReport");
+  const [gatewayId, setGatewayId] = useState("");
+
+  // Only a gate report needs this, so the project is fetched for its stages and nothing else.
+  const { data: project } = useProject(projectId);
+
+  const gateways = (project?.ribaStages ?? [])
+    .filter((s) => s.gatewayId)
+    .map((s) => ({
+      id: s.gatewayId!,
+      label: `Stage ${s.stageNumber} — ${s.stageName}${s.gatewayStatus ? ` (${s.gatewayStatus})` : ""}`,
+    }));
+
+  const needsGateway = reportType === "StageGateApproval";
 
   if (isLoading) return <p className="text-sm text-text-secondary">Loading reports…</p>;
   if (isError || !reports) return <p className="text-sm text-critical">Could not load reports.</p>;
@@ -120,21 +175,67 @@ export function ReportsTab({ projectId }: { projectId: string }) {
         <Card>
           <CardHeader><CardTitle>New Report</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap items-end gap-2 pt-0">
+            <label className="sr-only" htmlFor="report-type">Report type</label>
             <select
+              id="report-type"
               className="rounded-md border border-border bg-transparent px-2 py-1.5 text-sm"
               value={reportType}
-              onChange={(e) => setReportType(e.target.value as CommitteeReportType)}
+              onChange={(e) => {
+                setReportType(e.target.value as CommitteeReportType);
+                // A gateway chosen for a gate report must not survive a switch to a type the
+                // server rejects one on.
+                setGatewayId("");
+              }}
             >
-              {REPORT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              {REPORT_GROUPS.map((g) => (
+                <optgroup key={g.group} label={g.group}>
+                  {g.types.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </optgroup>
+              ))}
             </select>
-            <input placeholder="Title" className="flex-1 min-w-[10rem] rounded-md border border-border bg-transparent px-2 py-1.5 text-sm" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <label className="sr-only" htmlFor="report-title">Title</label>
+            <input id="report-title" placeholder="Title" className="flex-1 min-w-[10rem] rounded-md border border-border bg-transparent px-2 py-1.5 text-sm" value={title} onChange={(e) => setTitle(e.target.value)} />
+
+            {needsGateway ? (
+              <>
+                <label className="sr-only" htmlFor="report-gateway">Gateway</label>
+                <select
+                  id="report-gateway"
+                  className="min-w-[14rem] rounded-md border border-border bg-transparent px-2 py-1.5 text-sm"
+                  value={gatewayId}
+                  onChange={(e) => setGatewayId(e.target.value)}
+                  disabled={gateways.length === 0}
+                >
+                  <option value="">
+                    {gateways.length === 0 ? "No gateways on this project" : "Select a gateway…"}
+                  </option>
+                  {gateways.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+                </select>
+              </>
+            ) : null}
+
             <Button
               size="sm"
-              disabled={!title || createReport.isPending}
-              onClick={() => createReport.mutate({ reportType, title }, { onSuccess: (id) => { setTitle(""); setSelectedId(id); } })}
+              // A gate report without a gateway is rejected by the server, so the button is held
+              // rather than letting the request fail: the reason is visible here and would be a
+              // validation message there.
+              disabled={!title || createReport.isPending || (needsGateway && !gatewayId)}
+              onClick={() =>
+                createReport.mutate(
+                  { reportType, title, gatewayId: needsGateway ? gatewayId : undefined },
+                  { onSuccess: (id) => { setTitle(""); setGatewayId(""); setSelectedId(id); } },
+                )
+              }
             >
               {createReport.isPending ? "Generating…" : "Generate Draft"}
             </Button>
+
+            {needsGateway && gateways.length === 0 ? (
+              <p className="w-full text-xs text-text-secondary">
+                A stage gate approval report is written against a gateway. Raise one on the
+                Governance tab first.
+              </p>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -154,7 +255,7 @@ export function ReportsTab({ projectId }: { projectId: string }) {
                 >
                   <div>
                     <div className="font-medium">{r.title}</div>
-                    <div className="text-xs text-text-secondary">{r.reportType}</div>
+                    <div className="text-xs text-text-secondary">{reportTypeLabel(r.reportType)}</div>
                   </div>
                   <Badge variant={statusToBadgeVariant(r.status)}>{r.status}</Badge>
                 </button>

@@ -65,6 +65,7 @@ public class GetProjectByIdQueryHandler : IRequestHandler<GetProjectByIdQuery, P
                         PlannedEndDate = s.PlannedEndDate,
                         ActualStartDate = s.ActualStartDate,
                         ActualEndDate = s.ActualEndDate,
+                        GatewayId = gateway?.Id,
                         PendingGatewayId = gateway?.Status == Domain.Enums.GatewayStatus.Pending ? gateway.Id : null,
                         GatewayStatus = gateway?.Status.ToString()
                     };

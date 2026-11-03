@@ -30,7 +30,16 @@ export function useCommitteeReport(reportId: string | undefined) {
 export function useCreateCommitteeReport(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { reportType: CommitteeReportType; title: string; meetingDate?: string; snapshotId?: string }) =>
+    // gatewayId is required for a StageGateApproval and rejected for every other type — the
+    // server enforces both, since a gate report without one is a decision document about no
+    // decision, and any other type with one implies it records that gateway's outcome.
+    mutationFn: (vars: {
+      reportType: CommitteeReportType;
+      title: string;
+      meetingDate?: string;
+      snapshotId?: string;
+      gatewayId?: string;
+    }) =>
       apiClient.post<string>(`/projects/${projectId}/committee-reports`, vars),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: listKey(projectId) }),
   });

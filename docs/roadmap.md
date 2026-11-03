@@ -554,4 +554,19 @@ The gate report's decision panel was blank space to complete by hand while the p
 - [ ] **Nothing in the web app creates a gate report yet**, so nothing supplies a `GatewayId` through the UI. The endpoint accepts one and the validator requires it, which means a gate report currently cannot be created from the browser at all — deliberate, since the alternative was to let one be created without the link it exists for.
 - [ ] The report does not show the gateway's own `Status`, only its latest approval. The two can differ — a withdrawn gateway with an old approval against it — and which should win is a question about governance rather than about rendering.
 
+## Phase 38 — Creating a Gate Report From the Browser
+
+Phase 37 left the gate report API-only: the endpoint required a `GatewayId` and nothing in the UI supplied one, so the document could not be created from the app at all. Deliberate — the alternative was letting one exist without the link it exists for — but it left the feature unusable.
+
+- [x] **None of the six new documents was creatable, not only the gate report.** The UI's `CommitteeReportType` union still listed the original six types, so the Stage 0–1 pack had been exportable by the server and unaskable-for by the client since Phase 31. All six added together: fixing one and leaving five would have been an odd half-measure for one list.
+- [x] **Types are offered by name, grouped as a project meets them** — Reporting, RIBA Stage 0, RIBA Stage 1, Governance. "StageGateApproval" in a dropdown is a leaked identifier, the same defect as printing "ApprovedWithConditions" on a council document, and the raw enum names were showing in the report list too.
+- [x] **A gateway picker appears only for a gate report**, and the selection is cleared on switching type so a gateway cannot be carried onto a type the server rejects one on.
+- [x] **`RibaStageInstanceDto.GatewayId` added** alongside `PendingGatewayId`. The latter is deliberately null once a decision is taken, so the UI stops offering "decide"; a gate report is written against a gateway whether or not it has been decided — usually before, to seek the decision, sometimes after, to record one — so it needs the id in both cases.
+- [x] **The button is held rather than letting the request fail.** The server rejects a gate report with no gateway; holding the button puts the reason where the user is looking instead of behind a failed request. Where the project has no gateways at all the picker says so and the text points at the Governance tab — a disabled control with no explanation is the worst of both, since the user can neither proceed nor tell what would fix it.
+- [x] **7 Playwright tests** covering the payload the UI builds: the picker appears only for the right type, lists decided and pending gateways but not stages without one, holds the button, sends the gateway, sends none for other types, and explains the empty case. **38/38 E2E**, 242/242 unit, 35/35 vitest, both builds clean.
+- [x] Screenshotted and looked at, as in the last three phases.
+- [ ] **The gate report's decision panel is not shown in the editor.** The document carries it, and `CommitteeReportDto` now exposes `closingPanel` to the client, but the Reports tab renders only sections — so an author sees the decision in the exported file and not on screen.
+- [ ] Report types are listed in the client as a union that must be kept in step with the API's enum by hand. The sections stopped being duplicated this way in Phase 30 for exactly this reason; the type list is the same trap, smaller.
+- [ ] Nothing in the UI shows which gateway an existing gate report belongs to, so two reports against different gateways are distinguishable only by their titles.
+
 Each phase is designed to be independently shippable and reviewable. Modules from Phase 2 onward follow the same Domain → Application → Infrastructure → Api → Web pattern established in Phase 1.

@@ -19,6 +19,9 @@ export interface RibaStageInstance {
   plannedEndDate: string | null;
   actualStartDate: string | null;
   actualEndDate: string | null;
+  /** The latest gateway whatever its status — what a gate report is written against. */
+  gatewayId: string | null;
+  /** The latest gateway only while it awaits a decision — what the "decide" action uses. */
   pendingGatewayId: string | null;
   gatewayStatus: "Pending" | "Approved" | "Rejected" | "Withdrawn" | null;
 }

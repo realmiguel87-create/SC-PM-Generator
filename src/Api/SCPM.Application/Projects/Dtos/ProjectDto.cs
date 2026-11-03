@@ -32,7 +32,17 @@ public class RibaStageInstanceDto
     public DateOnly? ActualStartDate { get; set; }
     public DateOnly? ActualEndDate { get; set; }
 
-    /// <summary>The stage's most recent gateway, if one has been requested. Null if no gateway exists yet.</summary>
+    /// <summary>
+    /// The stage's most recent gateway, whatever its status. Null if none has been requested.
+    ///
+    /// Distinct from <see cref="PendingGatewayId"/>, which is deliberately null once a decision
+    /// has been taken so the UI stops offering "decide". A stage gate approval report is written
+    /// against a gateway whether or not it has been decided — usually before, to seek the
+    /// decision; sometimes after, to record one — so it needs the id in both cases.
+    /// </summary>
+    public Guid? GatewayId { get; set; }
+
+    /// <summary>The stage's most recent gateway, if one is awaiting a decision. Null otherwise.</summary>
     public Guid? PendingGatewayId { get; set; }
     public string? GatewayStatus { get; set; }
 }
