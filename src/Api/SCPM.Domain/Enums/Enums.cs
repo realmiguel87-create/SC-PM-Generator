@@ -68,7 +68,24 @@ public enum CommitteeReportType
     HealthAndSafetyFileIndex,
     PostOccupancyEvaluation,
     FinalAccountStatement,
-    LessonsLearnedReport
+    LessonsLearnedReport,
+
+    // Stage 0-1 governance and strategy, from the client PM's master document list.
+    StakeholderEngagementPlan,
+    GovernanceAndDelegationFramework,
+    FundingApprovalPaper,
+    ProcurementStrategy,
+    SustainabilityAndNetZeroStrategy,
+    DigitalInformationStrategy,
+    AssetInformationReview,
+    EmployersRequirements,
+    NecScope,
+    CommunicationPlan,
+    QualityManagementPlan,
+    PlanningStrategy,
+    FireStrategyBrief,
+    GroundInvestigationBrief,
+    InformationRequirements
 }
 
 public enum CommitteeReportStatus

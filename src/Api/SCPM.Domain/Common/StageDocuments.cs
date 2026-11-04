@@ -309,6 +309,7 @@ public static partial class StageDocuments
             (CommitteeReportType.ProjectExecutionPlan, ProjectExecutionPlan),
             (CommitteeReportType.StageGateApproval, StageGateApproval),
             .. Delivery,
+            .. GovernancePack,
         ]);
 
     /// <summary>

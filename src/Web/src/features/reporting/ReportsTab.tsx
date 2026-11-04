@@ -31,6 +31,13 @@ const REPORT_GROUPS: { group: string; types: { value: CommitteeReportType; label
     types: [
       { value: "ProjectMandate", label: "Project Mandate" },
       { value: "StrategicBusinessCase", label: "Strategic Business Case" },
+      { value: "StakeholderEngagementPlan", label: "Stakeholder Engagement Plan" },
+      { value: "GovernanceAndDelegationFramework", label: "Governance and Delegation Framework" },
+      { value: "FundingApprovalPaper", label: "Funding Approval Paper" },
+      { value: "ProcurementStrategy", label: "Procurement Strategy Paper" },
+      { value: "SustainabilityAndNetZeroStrategy", label: "Sustainability and Net Zero Strategy" },
+      { value: "DigitalInformationStrategy", label: "Digital Information Strategy" },
+      { value: "AssetInformationReview", label: "Existing Asset Information Review" },
     ],
   },
   {
@@ -39,6 +46,14 @@ const REPORT_GROUPS: { group: string; types: { value: CommitteeReportType; label
       { value: "ProjectBrief", label: "Project Brief" },
       { value: "FeasibilityStudy", label: "Feasibility Study Report" },
       { value: "ProjectExecutionPlan", label: "Project Execution Plan" },
+      { value: "EmployersRequirements", label: "Employer's Requirements" },
+      { value: "NecScope", label: "Scope (NEC)" },
+      { value: "CommunicationPlan", label: "Communication Plan" },
+      { value: "QualityManagementPlan", label: "Quality Management Plan" },
+      { value: "PlanningStrategy", label: "Planning Strategy" },
+      { value: "FireStrategyBrief", label: "Fire Strategy Brief" },
+      { value: "GroundInvestigationBrief", label: "Ground Investigation Brief" },
+      { value: "InformationRequirements", label: "Information Requirements" },
     ],
   },
   {

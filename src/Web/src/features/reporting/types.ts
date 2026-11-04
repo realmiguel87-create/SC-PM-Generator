@@ -30,7 +30,22 @@ export type CommitteeReportType =
   | "HealthAndSafetyFileIndex"
   | "PostOccupancyEvaluation"
   | "FinalAccountStatement"
-  | "LessonsLearnedReport";
+  | "LessonsLearnedReport"
+  | "StakeholderEngagementPlan"
+  | "GovernanceAndDelegationFramework"
+  | "FundingApprovalPaper"
+  | "ProcurementStrategy"
+  | "SustainabilityAndNetZeroStrategy"
+  | "DigitalInformationStrategy"
+  | "AssetInformationReview"
+  | "EmployersRequirements"
+  | "NecScope"
+  | "CommunicationPlan"
+  | "QualityManagementPlan"
+  | "PlanningStrategy"
+  | "FireStrategyBrief"
+  | "GroundInvestigationBrief"
+  | "InformationRequirements";
 export type CommitteeReportStatus = "Draft" | "Approved" | "Submitted";
 export type ReportExportFormat = "Pdf" | "Xlsx" | "Csv" | "Json" | "Docx" | "Pptx";
 
