@@ -618,4 +618,21 @@ The service supplied a master list of roughly 150 documents a client-side PM man
 - [ ] **The guidance on the contract documents is the most consequential and the least verified in this project.** It describes contractual procedure and its consequences, from standard practice rather than from the council's executed contracts. It should be read by someone who administers these contracts before anyone relies on it, and the clause positions checked against the actual Z clauses in use.
 - [ ] Registers still have no export in the house style, which is now the largest remaining gap between this document set and the list it was built from.
 
+## Phase 42 — Reading the Council's Markup
+
+The service reviews a generated document by commenting in Word and sending it back. `tools/SCPM.DocReview` reads that markup.
+
+- [x] **Comments with their anchors.** Author, date, text, and — the point of the tool — the words each comment is attached to. A comment knows nothing about what it is about; only the body does, through a `commentRangeStart`/`End` pair carrying the comment's id. "The sponsor label is wrong" has to be hunted for across seventy-seven documents; an anchor names the words.
+- [x] **Reply threads reconstructed.** Word does not record a reply against the comment it answers — it records it against that comment's last *paragraph* id, in a separate part. The join from paragraph id back to comment id is the whole of the feature, and the reason the obvious implementation returns a flat list of unrelated remarks.
+- [x] **Resolved threads are reported as resolved** rather than acted on again, and **tracked changes** are read alongside, for a reviewer who would rather edit than comment.
+- [x] **Deleted text is read from `w:delText`, not `w:t`.** Reading only `w:t` reports every deletion as empty, which is indistinguishable from there being none — a silent failure, and the kind this project has been caught by before.
+- [x] **Read-only, deliberately.** A correction belongs in the document definition that generates every future copy, not in the one file somebody annotated. Editing the returned copy would fix one document and leave the generator producing the same defect for ever. The tool's summary says so.
+- [x] **Written in C# against the Open XML SDK** rather than kept as the scratch Python script that proved the idea. The SDK is already a dependency, the logic is unit tested alongside everything else, and — see below — it is stricter in a way that turned out to matter.
+- [x] **9 tests, against a document built the way Word builds one**: a comments part, an extended comments part for threading, overlapping ranges, a resolved thread, an insertion and a deletion. A reader tested only against its author's idea of the format passes until a real file arrives.
+- [x] **The scratch Python reader was wrong and had passed.** It accepted an extended-comments part rooted at `w:commentsEx` in the main namespace; Word writes `w15:commentsEx`. The Python reader was lenient enough to accept a file Word would never produce, and only the SDK's stricter parse exposed it. The error surfaced as the new tool refusing a file the old one had read happily — which looked at first like a regression in the new tool and was the opposite.
+- [x] **1048/1048 unit tests**, clean under `-warnaserror`, and run end to end against a marked-up document rather than only against its own fixtures.
+- [ ] **The tool reads a folder, not a Drive link.** The service intends to send documents by Google Drive; the files have to be in the session before this can read them, and nothing here fetches them.
+- [ ] Comments on a table cell's text are anchored correctly, but a comment on a whole table or on an image has no text to report and comes back with an empty anchor. It still reports — the comment is not lost — but the location has to be inferred from the comment itself.
+- [ ] Nothing maps a comment back to the document definition that produced the commented text. Doing so would turn "fix this heading" into an edit in one named file rather than a search, and is the obvious next step if markup becomes routine.
+
 Each phase is designed to be independently shippable and reviewable. Modules from Phase 2 onward follow the same Domain → Application → Infrastructure → Api → Web pattern established in Phase 1.

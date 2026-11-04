@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Api\SCPM.Application\SCPM.Application.csproj" />
     <ProjectReference Include="..\..\src\Api\SCPM.Infrastructure\SCPM.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\tools\SCPM.DocReview\SCPM.DocReview.csproj" />
   </ItemGroup>
 
 </Project>
