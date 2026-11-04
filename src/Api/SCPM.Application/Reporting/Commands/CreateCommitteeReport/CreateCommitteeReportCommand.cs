@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SCPM.Application.Common.Interfaces;
+using SCPM.Application.Reporting.Drafting;
 using SCPM.Domain.Common;
 using SCPM.Domain.Entities;
 using SCPM.Domain.Enums;
@@ -58,60 +59,12 @@ public class CreateCommitteeReportCommandHandler : IRequestHandler<CreateCommitt
             }
         }
 
-        var openRiskCount = await _db.Risks.CountAsync(
-            r => r.ProjectId == request.ProjectId && r.Status == RiskStatus.Open, cancellationToken);
-
-        var highestRiskScore = await _db.Risks
-            .Where(r => r.ProjectId == request.ProjectId && r.Status == RiskStatus.Open)
-            .Select(r => (int?)(r.Probability * r.Impact))
-            .OrderByDescending(s => s)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        var outstandingMilestones = await _db.Milestones
-            .Where(m => m.ProjectId == request.ProjectId && m.Status != MilestoneStatus.Complete)
-            .ToListAsync(cancellationToken);
-        var behindBaseline = outstandingMilestones.Count(m => m.DelayDays > 0);
-
-        var stakeholderCount = await _db.Stakeholders.CountAsync(
-            s => s.ProjectId == request.ProjectId, cancellationToken);
-
-        var variance = project.ForecastCost - project.ApprovedBudget;
         var actorId = _currentUser.UserId ?? Guid.Empty;
 
-        var finance =
-            $"Approved budget: £{project.ApprovedBudget:N0}. Current forecast: £{project.ForecastCost:N0}. " +
-            $"Variance: £{Math.Abs(variance):N0} ({(variance > 0 ? "over" : variance < 0 ? "under" : "on")} budget).";
-
-        var programme = outstandingMilestones.Count == 0
-            ? "No outstanding milestones recorded."
-            : $"{outstandingMilestones.Count} milestone(s) outstanding, of which {behindBaseline} are behind baseline.";
-
-        var risk = openRiskCount == 0
-            ? "No open risks recorded."
-            : $"{openRiskCount} open risk(s) on the register, highest current score {highestRiskScore ?? 0}/25.";
-
-        // Keyed by section rather than assigned to named columns, so a report type without a
-        // finance section simply never asks for this text rather than storing it invisibly.
-        var drafts = request.ReportType == CommitteeReportType.StatusReport
-            ? new Dictionary<string, string>
-            {
-                // Only the two sections that are wholly figures. Key activities, planned
-                // activities and issues are the author's account of the period and are left empty
-                // deliberately — a plausible-looking generated paragraph there is worse than an
-                // obviously empty heading.
-                ["schedule-update"] = programme,
-                ["cost-position"] = finance,
-            }
-            : new Dictionary<string, string>
-            {
-                ["executive-summary"] =
-                    $"This report provides an update on {project.Name} ({project.ProjectRef}), " +
-                    $"currently at RIBA Stage {project.CurrentRibaStage}.",
-                ["finance-commentary"] = finance,
-                ["programme-commentary"] = programme,
-                ["risk-commentary"] = risk,
-                ["stakeholder-commentary"] = $"{stakeholderCount} stakeholder(s) recorded on the register.",
-            };
+        // Read once from the registers, then handed to the one place that decides which sections
+        // of which documents are figures and which are judgement. See ReportDrafts.
+        var facts = await ProjectFacts.ReadAsync(_db, project, cancellationToken);
+        var drafts = ReportDrafts.For(request.ReportType, facts);
 
         var report = new CommitteeReport
         {
