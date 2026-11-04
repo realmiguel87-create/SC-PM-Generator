@@ -22,12 +22,19 @@ namespace SCPM.Domain.Common;
 /// outcome, who took it, when — and burying that in prose is how a governance file ends up unable
 /// to answer "who approved this?" without someone reading three pages.
 /// </param>
+/// <param name="StageLabel">
+/// What the facts panel calls the <paramref name="RibaStage"/> field. "RIBA Stage" for a stage
+/// document; "Contract" for a contract administration document, whose value is a form of contract
+/// and not a stage at all. Labelling a contract form "RIBA Stage" is the sort of small wrongness
+/// a reader notices and nobody can explain.
+/// </param>
 public record DocumentDefinition(
     string Eyebrow,
     string Title,
     string RibaStage,
     IReadOnlyList<ReportSection> Sections,
-    IReadOnlyList<string>? ClosingPanel = null);
+    IReadOnlyList<string>? ClosingPanel = null,
+    string StageLabel = "RIBA Stage");
 
 /// <summary>
 /// The RIBA Stage 0–1 governance pack: the five documents a capital project needs before anything
@@ -310,6 +317,10 @@ public static partial class StageDocuments
             (CommitteeReportType.StageGateApproval, StageGateApproval),
             .. Delivery,
             .. GovernancePack,
+            .. DesignPack,
+            .. NecPack,
+            .. SbccPack,
+            .. HandoverPack,
         ]);
 
     /// <summary>

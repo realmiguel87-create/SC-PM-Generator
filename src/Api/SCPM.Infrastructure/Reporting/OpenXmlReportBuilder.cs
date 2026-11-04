@@ -413,7 +413,7 @@ internal static class OpenXmlReportBuilder
     [
         ("Project / Programme", report.ProjectName),
         ("Project ID Ref", report.ProjectRef),
-        ("RIBA Stage", report.RibaStage ?? definition.RibaStage),
+        (definition.StageLabel, report.RibaStage ?? definition.RibaStage),
         ("Project Sponsor", report.SponsorName ?? string.Empty),
         ("Project Manager", report.ProjectManagerName ?? string.Empty),
         ("Budget", FormatBudget(report)),

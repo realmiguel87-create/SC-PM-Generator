@@ -267,7 +267,7 @@ internal static class PdfReportBuilder
         // report's date belongs among its facts, a stage document's belongs under its title.
         var third = definition is null
             ? ("Report Date", FormatDate(report))
-            : ("RIBA Stage", report.RibaStage ?? definition.RibaStage);
+            : (definition.StageLabel, report.RibaStage ?? definition.RibaStage);
 
         return
         [

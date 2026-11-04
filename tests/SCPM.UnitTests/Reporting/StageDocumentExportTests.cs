@@ -286,31 +286,56 @@ public class StageDocumentExportTests
     }
 
     [Fact]
-    public void Gives_a_closing_panel_only_to_documents_that_certify_or_decide()
+    public void Gives_no_strategy_plan_or_narrative_report_a_signature_panel()
     {
-        // A closing panel is a field someone completes and signs. It belongs on a document whose
-        // purpose is to record an outcome, and nowhere else: on a Project Brief or a Lessons
-        // Learned Report it would invite sign-off of something that is not a decision.
+        // A closing panel is a block someone signs. On a certificate, a notice or an instruction
+        // that is the point. On a strategy or a plan it implies a formal sign-off nobody intended
+        // and that the document's own governance does not provide for — which is the defect worth
+        // guarding against, and the direction a well-meant "make it look official" edit travels.
         //
-        // Listed explicitly rather than counted, so a new document cannot quietly acquire one.
-        var expected = new[]
+        // The positive set is not enumerated: it is now twenty-nine documents and grows with
+        // every certificate added, so a list of names would be edited mechanically rather than
+        // considered. What is enumerated is where a panel would be wrong.
+        var mustNotHaveOne = new[]
         {
-            CommitteeReportType.StageGateApproval,
-            CommitteeReportType.PaymentCertificate,
-            CommitteeReportType.ChangeInstruction,
-            CommitteeReportType.PracticalCompletionCertificate,
-            CommitteeReportType.HealthAndSafetyFileIndex,
+            CommitteeReportType.ProjectBrief,
+            CommitteeReportType.StrategicBusinessCase,
+            CommitteeReportType.ProjectExecutionPlan,
+            CommitteeReportType.FeasibilityStudy,
+            CommitteeReportType.ProjectMandate,
+            CommitteeReportType.ProcurementStrategy,
+            CommitteeReportType.SustainabilityAndNetZeroStrategy,
+            CommitteeReportType.DigitalInformationStrategy,
+            CommitteeReportType.CommunicationPlan,
+            CommitteeReportType.QualityManagementPlan,
+            CommitteeReportType.PlanningStrategy,
+            CommitteeReportType.MaintenanceStrategy,
+            CommitteeReportType.AssetManagementPlan,
+            CommitteeReportType.LessonsLearnedReport,
+            CommitteeReportType.PostOccupancyEvaluation,
+            CommitteeReportType.ConstructionProgressReport,
+            CommitteeReportType.StatusReport,
+            CommitteeReportType.CommitteeReport,
         };
 
-        StageDocuments.All
-            .Where(d => d.Definition.ClosingPanel is not null)
-            .Select(d => d.Type)
-            .Should().BeEquivalentTo(expected);
+        foreach (var type in mustNotHaveOne)
+        {
+            StageDocuments.Find(type)?.ClosingPanel
+                .Should().BeNull($"{type} is not signed off on its own face");
+        }
 
-        // And every panel that exists has somewhere to write: three labelled fields.
+        // Every panel that does exist has three labelled fields, which is what the layout draws
+        // and what the writing space is sized for.
         StageDocuments.All
             .Where(d => d.Definition.ClosingPanel is not null)
             .Should().OnlyContain(d => d.Definition.ClosingPanel!.Count == 3);
+
+        // And a panel's labels are distinct: two fields with the same label are two fields nobody
+        // can tell apart on a signed document.
+        foreach (var (type, definition) in StageDocuments.All)
+        {
+            definition.ClosingPanel?.Should().OnlyHaveUniqueItems($"{type}'s panel is signed");
+        }
     }
 
     [Fact]

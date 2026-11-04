@@ -85,7 +85,55 @@ public enum CommitteeReportType
     PlanningStrategy,
     FireStrategyBrief,
     GroundInvestigationBrief,
-    InformationRequirements
+    InformationRequirements,
+
+    // Stage 2-4 design control and procurement.
+    DesignResponsibilityMatrix,
+    ValueEngineeringReport,
+    UtilitiesDiversionStrategy,
+    DesignFreezeRecord,
+    DesignReviewRecord,
+    BuildabilityReview,
+    CdmComplianceStatement,
+    TenderEvaluationCriteria,
+    ChangeControlProcedure,
+    ConstructionPhasePlanReview,
+
+    // NEC4 contract administration. Notices and certificates the Project Manager or Supervisor
+    // issues under the contract — not the contract's own published forms.
+    NecEarlyWarningNotice,
+    NecCompensationEventNotification,
+    NecCompensationEventQuotation,
+    NecProjectManagerInstruction,
+    NecDefectNotification,
+    NecSupervisorInspectionRecord,
+    NecCompletionCertificate,
+    NecDefectsCertificate,
+    NecFinalAssessment,
+    NecDefectsPeriodReview,
+
+    // SBCC contract administration, the equivalents under the Scottish Building Contract.
+    SbccArchitectsInstruction,
+    SbccVariationOrder,
+    SbccExtensionOfTimeAward,
+    SbccLossAndExpenseAssessment,
+    SbccInterimCertificate,
+    SbccNonCompletionCertificate,
+    SbccMakingGoodDefectsCertificate,
+    SbccFinalCertificate,
+    SbccFinalAccountAgreement,
+    SbccDefectsLiabilityReview,
+
+    // Stage 6-7 client handover and use.
+    HandoverPlan,
+    BuildingUserGuide,
+    OccupancyReadinessReport,
+    TrainingRecord,
+    BenefitsRealisationReview,
+    BuildingPerformanceReview,
+    MaintenanceStrategy,
+    AssetManagementPlan,
+    ContractCloseOutReport
 }
 
 public enum CommitteeReportStatus
