@@ -66,6 +66,12 @@ public class CommitteeReportExporter : ICommitteeReportExporter
     /// </summary>
     private static byte[] ExportDocx(CommitteeReportDto report)
     {
+        if (Meeting(report) is { } meeting)
+        {
+            return OpenXmlReportBuilder.BuildMeetingDocx(
+                report, meeting, StirlingPurple, StirlingGreen, CouncilLogo.Png);
+        }
+
         var branded = BrandedLayout(report);
 
         if (branded is null)
@@ -109,8 +115,20 @@ public class CommitteeReportExporter : ICommitteeReportExporter
                 : null;
     }
 
+    /// <summary>The meeting definition for this report type, or null when it is not a meeting.</summary>
+    private static MeetingDefinition? Meeting(CommitteeReportDto report) =>
+        Enum.TryParse<CommitteeReportType>(report.ReportType, out var type)
+            ? MeetingDocuments.Find(type)
+            : null;
+
     private byte[] ExportPdf(CommitteeReportDto report)
     {
+        if (Meeting(report) is { } meeting)
+        {
+            return PdfReportBuilder.BuildMeeting(
+                report, meeting, StirlingPurple, StirlingGreen, CouncilLogo.Png);
+        }
+
         if (BrandedLayout(report) is { } branded)
         {
             return PdfReportBuilder.Build(

@@ -284,4 +284,176 @@ internal static class PdfReportBuilder
         report.ReportDate?.ToString("d MMMM yyyy", OpenXmlReportBuilder.Culture)
         ?? report.MeetingDate?.ToString("d MMMM yyyy", OpenXmlReportBuilder.Culture)
         ?? string.Empty;
+
+    /// <summary>
+    /// A meeting agenda or the minutes of one, matching the Word layout: the branded chrome, then
+    /// a three-column Ref / Item / Action grid.
+    /// </summary>
+    public static byte[] BuildMeeting(
+        CommitteeReportDto report,
+        MeetingDefinition definition,
+        string purple,
+        string green,
+        byte[]? logo)
+    {
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.MarginHorizontal(1.5f, Unit.Centimetre);
+                page.MarginTop(1.5f, Unit.Centimetre);
+                page.MarginBottom(2.2f, Unit.Centimetre);
+
+                page.DefaultTextStyle(x => x
+                    .FontFamily(SerifChain).FontSize(11).FontColor(BodyInk));
+
+                page.Content().Column(column =>
+                {
+                    column.Item()
+                        .Background(purple).PaddingVertical(5).PaddingHorizontal(11)
+                        .Text(definition.Eyebrow.ToUpperInvariant())
+                        .FontFamily(SansChain).FontSize(7.5f).Bold()
+                        .LetterSpacing(0.17f).FontColor("#FFFFFF");
+
+                    column.Item().PaddingTop(16)
+                        .Text(definition.Title).FontSize(32).Bold().FontColor(BodyInk);
+
+                    column.Item().PaddingTop(16)
+                        .Element(e => FactsPanel(e, MeetingFacts(report, definition)));
+
+                    if (definition.IsMinutes)
+                    {
+                        column.Item().PaddingTop(14).Element(e => Attendance(e, green));
+                    }
+
+                    column.Item().PaddingTop(16).Element(e => MeetingGrid(e, definition, green));
+                });
+
+                page.Footer().Element(e => Footer(
+                    e,
+                    $"{definition.Title}      Doc No: [to be assigned]      "
+                    + "Issued by: Project Delivery      Version: 01",
+                    purple,
+                    logo));
+            });
+        });
+
+        return document.GeneratePdf();
+    }
+
+    private static IReadOnlyList<(string Label, string Value)> MeetingFacts(
+        CommitteeReportDto report, MeetingDefinition definition) =>
+    [
+        ("Project / Programme", report.ProjectName),
+        ("Project ID Ref", report.ProjectRef),
+        ("Meeting", definition.Kind),
+        ("Meeting No", string.Empty),
+        ("Date and Time", FormatDate(report)),
+        ("Location", string.Empty),
+        ("Chair", report.ProjectManagerName ?? string.Empty),
+        ("Minuted By", string.Empty),
+        ("Distribution", string.Empty),
+    ];
+
+    private static void Attendance(IContainer container, string green)
+    {
+        container.Column(column =>
+        {
+            foreach (var (heading, rows) in new[] { ("Present", 4), ("Apologies", 2) })
+            {
+                column.Item().PaddingTop(heading == "Present" ? 0 : 8).Row(row =>
+                {
+                    row.RelativeItem().BorderBottom(1).BorderColor(green)
+                        .PaddingBottom(2).Text(heading.ToUpperInvariant())
+                        .FontFamily(SansChain).FontSize(7).Bold()
+                        .LetterSpacing(0.16f).FontColor(MutedInk);
+
+                    row.RelativeItem().BorderBottom(1).BorderColor(green)
+                        .PaddingBottom(2).Text("ORGANISATION")
+                        .FontFamily(SansChain).FontSize(7).Bold()
+                        .LetterSpacing(0.16f).FontColor(MutedInk);
+                });
+
+                for (var i = 0; i < rows; i++)
+                {
+                    column.Item().Row(row =>
+                    {
+                        row.RelativeItem().Height(14).BorderBottom(0.5f).BorderColor("#E4E0EC");
+                        row.RelativeItem().Height(14).BorderBottom(0.5f).BorderColor("#E4E0EC");
+                    });
+                }
+            }
+        });
+    }
+
+    private static void MeetingGrid(IContainer container, MeetingDefinition definition, string green)
+    {
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.ConstantColumn(34);
+                columns.RelativeColumn();
+                columns.ConstantColumn(70);
+            });
+
+            foreach (var heading in new[] { "Ref", definition.IsMinutes ? "Minute" : "Item", "Action" })
+            {
+                var header = table.Cell().BorderBottom(1).BorderColor(green);
+                if (heading == "Action") header = header.BorderLeft(1).BorderColor("#E4E0EC");
+
+                header.PaddingBottom(3).PaddingLeft(heading == "Action" ? 6 : 0)
+                    .Text(heading.ToUpperInvariant())
+                    .FontFamily(SansChain).FontSize(7).Bold()
+                    .LetterSpacing(0.16f).FontColor(MutedInk);
+            }
+
+            foreach (var item in definition.Items)
+            {
+                table.Cell().PaddingTop(8).Text(item.Number)
+                    .FontSize(11).Bold().FontColor(green);
+                table.Cell().PaddingTop(8).Text(item.Title).FontSize(11).Bold().FontColor(BodyInk);
+                table.Cell().BorderLeft(1).BorderColor("#E4E0EC").MinHeight(18);
+
+                var stem = item.Number.EndsWith(".0", StringComparison.Ordinal)
+                    ? item.Number[..^2]
+                    : item.Number;
+
+                if (item.Points.Count == 0)
+                {
+                    table.Cell().PaddingTop(3).Text(definition.IsMinutes ? $"{stem}.1" : string.Empty)
+                        .FontFamily(SansChain).FontSize(8.5f).FontColor(MutedInk);
+                    table.Cell().PaddingTop(3).MinHeight(16).Text(string.Empty);
+                    table.Cell().BorderLeft(1).BorderColor("#E4E0EC").MinHeight(18);
+                    continue;
+                }
+
+                for (var i = 0; i < item.Points.Count; i++)
+                {
+                    table.Cell().PaddingTop(3)
+                        .Text(definition.IsMinutes ? $"{stem}.{i + 1}" : string.Empty)
+                        .FontFamily(SansChain).FontSize(8.5f).FontColor(MutedInk);
+
+                    var cell = table.Cell().PaddingTop(3).PaddingRight(6);
+
+                    if (definition.IsMinutes)
+                    {
+                        cell.Text(item.Points[i]).FontSize(10).Italic()
+                            .FontColor(MutedInk).LineHeight(1.3f);
+                    }
+                    else
+                    {
+                        cell.Row(bullet =>
+                        {
+                            bullet.ConstantItem(10).Text("•").FontColor(BodyInk);
+                            bullet.RelativeItem().Text(item.Points[i]).LineHeight(1.3f);
+                        });
+                    }
+
+                    table.Cell().BorderLeft(1).BorderColor("#E4E0EC").MinHeight(18);
+                }
+            }
+        });
+    }
 }

@@ -1297,4 +1297,268 @@ internal static class OpenXmlReportBuilder
 
     private static D.Outline PhOutline(int width) =>
         new(new D.SolidFill(new D.SchemeColor { Val = D.SchemeColorValues.PhColor })) { Width = width };
+
+    // --- Meeting agendas and minutes ---
+
+    /// <summary>Column widths for the Ref / Item / Action grid, in twips.</summary>
+    private const int RefColumn = 760;
+    private const int ActionColumn = 1500;
+
+    /// <summary>
+    /// A meeting agenda or the minutes of one.
+    ///
+    /// A different shape from every other document here: not numbered prose but a three-column
+    /// grid of reference, item and action, which is how the council's own meeting documents are
+    /// set out and how anyone reading one expects to find an action. The branded chrome is the
+    /// same — strip, title, facts panel, footer and logo — so a meeting record sits in the same
+    /// family as the reports it feeds.
+    ///
+    /// Agenda and minutes come from one definition. In the originals they are separate files
+    /// whose item lists have already begun to diverge, which is how a meeting comes to be minuted
+    /// against a structure nobody agreed.
+    /// </summary>
+    public static byte[] BuildMeetingDocx(
+        CommitteeReportDto report,
+        MeetingDefinition definition,
+        string purple,
+        string green,
+        byte[]? logo)
+    {
+        using var stream = new MemoryStream();
+
+        using (var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document))
+        {
+            var main = document.AddMainDocumentPart();
+            AppendDocumentDefaults(main);
+            var bulletNumberId = AppendBulletNumbering(main);
+
+            var body = new W.Body();
+
+            body.Append(EyebrowStrip(definition.Eyebrow, purple));
+            body.Append(TitleParagraph(definition.Title, followedByDate: false));
+            body.Append(FactsPanel(MeetingFacts(report, definition)));
+
+            if (definition.IsMinutes)
+            {
+                // Who was there, with their organisation. Six months later "WW" means nothing
+                // without it — and the service's own minutes contain two people with those
+                // initials, which is exactly what initials alone cannot resolve.
+                body.Append(Spacer(240));
+                body.Append(AttendanceTable(green));
+            }
+
+            body.Append(Spacer(300));
+            body.Append(MeetingTable(definition, green, bulletNumberId));
+
+            main.Document = new W.Document(body);
+
+            AppendDocumentControlFooter(
+                main,
+                $"{definition.Title}      Doc No: [to be assigned]      "
+                + "Issued by: Project Delivery      Version: 01",
+                purple,
+                logo);
+        }
+
+        return stream.ToArray();
+    }
+
+    private static IReadOnlyList<(string Label, string Value)> MeetingFacts(
+        CommitteeReportDto report, MeetingDefinition definition) =>
+    [
+        ("Project / Programme", report.ProjectName),
+        ("Project ID Ref", report.ProjectRef),
+        ("Meeting", definition.Kind),
+        ("Meeting No", string.Empty),
+        ("Date and Time", FormatReportDate(report)),
+        ("Location", string.Empty),
+        ("Chair", report.ProjectManagerName ?? string.Empty),
+        ("Minuted By", string.Empty),
+        ("Distribution", string.Empty),
+    ];
+
+    /// <summary>
+    /// Attendees and apologies, each against the organisation they attend for.
+    /// </summary>
+    private static W.Table AttendanceTable(string green)
+    {
+        var nameColumn = ContentWidth / 2;
+
+        var table = new W.Table(
+            new W.TableProperties(
+                new W.TableWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                NoBorders(),
+                new W.TableCellMarginDefault(
+                    new W.TopMargin { Width = "90", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellLeftMargin { Width = 0, Type = W.TableWidthValues.Dxa },
+                    new W.BottomMargin { Width = "90", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellRightMargin { Width = 160, Type = W.TableWidthValues.Dxa })),
+            new W.TableGrid(
+                new W.GridColumn { Width = nameColumn.ToString() },
+                new W.GridColumn { Width = (ContentWidth - nameColumn).ToString() }));
+
+        table.Append(new W.TableRow(
+            HeaderCell("Present", nameColumn, green),
+            HeaderCell("Organisation", ContentWidth - nameColumn, green)));
+
+        // Four blank rows for each, enough to write into and few enough not to dominate the page.
+        for (var i = 0; i < 4; i++)
+        {
+            table.Append(new W.TableRow(
+                WritingCell(nameColumn), WritingCell(ContentWidth - nameColumn)));
+        }
+
+        table.Append(new W.TableRow(
+            HeaderCell("Apologies", nameColumn, green),
+            HeaderCell("Organisation", ContentWidth - nameColumn, green)));
+
+        for (var i = 0; i < 2; i++)
+        {
+            table.Append(new W.TableRow(
+                WritingCell(nameColumn), WritingCell(ContentWidth - nameColumn)));
+        }
+
+        return table;
+    }
+
+    private static W.TableCell HeaderCell(string text, int width, string green, bool ruleLeft = false)
+    {
+        var borders = new W.TableCellBorders(
+            new W.BottomBorder { Val = W.BorderValues.Single, Size = 6, Color = Rgb(green) });
+
+        if (ruleLeft)
+        {
+            borders.InsertAt(
+                new W.LeftBorder { Val = W.BorderValues.Single, Size = 4, Color = RuleGrey }, 0);
+        }
+
+        return new W.TableCell(
+            new W.TableCellProperties(
+                new W.TableCellWidth { Width = width.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                borders),
+            StyledParagraph(text, 14, MutedInk, bold: true, caps: true, letterSpacing: 26,
+                spaceAfter: 40, font: SansFont));
+    }
+
+    private static W.TableCell WritingCell(int width) =>
+        new(
+            new W.TableCellProperties(
+                new W.TableCellWidth { Width = width.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                new W.TableCellBorders(
+                    new W.BottomBorder { Val = W.BorderValues.Single, Size = 2, Color = RuleGrey })),
+            StyledParagraph(" ", 18, BodyInk, spaceAfter: 60, font: SansFont));
+
+    /// <summary>
+    /// The agenda or minutes grid.
+    ///
+    /// On an agenda each item's points are listed as bullets, as matters to be covered. On the
+    /// minutes of the same meeting each point becomes its own numbered row — 2.1, 2.2 under item
+    /// 2.0 — with an action cell beside it, which is how the council minutes and how an action
+    /// becomes findable afterwards.
+    /// </summary>
+    private static W.Table MeetingTable(MeetingDefinition definition, string green, int bulletNumberId)
+    {
+        var itemColumn = ContentWidth - RefColumn - ActionColumn;
+
+        var table = new W.Table(
+            new W.TableProperties(
+                new W.TableWidth { Width = ContentWidth.ToString(), Type = W.TableWidthUnitValues.Dxa },
+                NoBorders(),
+                new W.TableCellMarginDefault(
+                    new W.TopMargin { Width = "110", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellLeftMargin { Width = 0, Type = W.TableWidthValues.Dxa },
+                    new W.BottomMargin { Width = "110", Type = W.TableWidthUnitValues.Dxa },
+                    new W.TableCellRightMargin { Width = 200, Type = W.TableWidthValues.Dxa })),
+            new W.TableGrid(
+                new W.GridColumn { Width = RefColumn.ToString() },
+                new W.GridColumn { Width = itemColumn.ToString() },
+                new W.GridColumn { Width = ActionColumn.ToString() }));
+
+        table.Append(new W.TableRow(
+            HeaderCell("Ref", RefColumn, green),
+            HeaderCell(definition.IsMinutes ? "Minute" : "Item", itemColumn, green),
+            HeaderCell("Action", ActionColumn, green, ruleLeft: true)));
+
+        foreach (var item in definition.Items)
+        {
+            table.Append(new W.TableRow(
+                Cell(RefColumn, StyledParagraph(item.Number, 20, Rgb(green), bold: true, spaceAfter: 0)),
+                Cell(itemColumn, StyledParagraph(item.Title, 20, BodyInk, bold: true, spaceAfter: 0)),
+                Cell(ActionColumn, new W.Paragraph(), ruleLeft: true)));
+
+            if (item.Points.Count == 0)
+            {
+                // An item with nothing listed under it still needs somewhere to write, or the
+                // document is a list of headings with no room for a meeting.
+                table.Append(new W.TableRow(
+                    Cell(RefColumn, EntryRef(definition, item, 1, green)),
+                    Cell(itemColumn, StyledParagraph(" ", BodyHalfPoints, BodyInk, spaceAfter: 160)),
+                    Cell(ActionColumn, new W.Paragraph(), ruleLeft: true)));
+                continue;
+            }
+
+            if (definition.IsMinutes)
+            {
+                for (var i = 0; i < item.Points.Count; i++)
+                {
+                    table.Append(new W.TableRow(
+                        Cell(RefColumn, EntryRef(definition, item, i + 1, green)),
+                        Cell(itemColumn, PromptParagraph(item.Points[i])),
+                        Cell(ActionColumn, new W.Paragraph(), ruleLeft: true)));
+                }
+
+                continue;
+            }
+
+            var agendaCell = new W.TableCell(
+                new W.TableCellProperties(
+                    new W.TableCellWidth { Width = itemColumn.ToString(), Type = W.TableWidthUnitValues.Dxa }));
+
+            foreach (var point in item.Points) agendaCell.Append(BulletParagraph(point, bulletNumberId));
+
+            table.Append(new W.TableRow(
+                Cell(RefColumn, new W.Paragraph()), agendaCell, Cell(ActionColumn, new W.Paragraph(), ruleLeft: true)));
+        }
+
+        return table;
+    }
+
+    /// <summary>
+    /// A minute's reference — 2.1 under item 2.0 — or blank on an agenda, where the points are
+    /// bullets rather than numbered entries.
+    /// </summary>
+    private static W.Paragraph EntryRef(
+        MeetingDefinition definition, MeetingItem item, int index, string green)
+    {
+        if (!definition.IsMinutes) return new W.Paragraph();
+
+        var stem = item.Number.EndsWith(".0", StringComparison.Ordinal)
+            ? item.Number[..^2]
+            : item.Number;
+
+        return StyledParagraph($"{stem}.{index}", 17, MutedInk, spaceAfter: 0, font: SansFont);
+    }
+
+    /// <summary>
+    /// A cell of the meeting grid. <paramref name="ruleLeft"/> draws a hairline down the left
+    /// edge, used only on the action column.
+    ///
+    /// Everything else in this house style has no borders at all, and that is right for a
+    /// document that is read. A meeting record is a document that is written into, and an action
+    /// column with no edge is invisible: the heading says ACTION and nothing shows where it goes.
+    /// Found by rendering the page — the markup looked complete.
+    /// </summary>
+    private static W.TableCell Cell(int width, W.Paragraph content, bool ruleLeft = false)
+    {
+        var properties = new W.TableCellProperties(
+            new W.TableCellWidth { Width = width.ToString(), Type = W.TableWidthUnitValues.Dxa });
+
+        if (ruleLeft)
+        {
+            properties.Append(new W.TableCellBorders(
+                new W.LeftBorder { Val = W.BorderValues.Single, Size = 4, Color = RuleGrey }));
+        }
+
+        return new W.TableCell(properties, content);
+    }
 }

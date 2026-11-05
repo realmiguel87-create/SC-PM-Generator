@@ -133,7 +133,15 @@ public enum CommitteeReportType
     BuildingPerformanceReview,
     MaintenanceStrategy,
     AssetManagementPlan,
-    ContractCloseOutReport
+    ContractCloseOutReport,
+
+    // Project meetings. Agenda and minutes of each share one item list — see MeetingDocuments.
+    DesignTeamMeetingAgenda,
+    DesignTeamMeetingMinutes,
+    PreStartMeetingAgenda,
+    PreStartMeetingMinutes,
+    ProgressMeetingAgenda,
+    ProgressMeetingMinutes
 }
 
 public enum CommitteeReportStatus

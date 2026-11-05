@@ -156,6 +156,17 @@ const REPORT_GROUPS: { group: string; types: { value: CommitteeReportType; label
       { value: "SbccDefectsLiabilityReview", label: "Defects Liability Review" },
     ],
   },
+  {
+    group: "Project Meetings",
+    types: [
+      { value: "DesignTeamMeetingAgenda", label: "Design Team Meeting Agenda" },
+      { value: "DesignTeamMeetingMinutes", label: "Design Team Meeting Minutes" },
+      { value: "PreStartMeetingAgenda", label: "Pre-Start Meeting Agenda" },
+      { value: "PreStartMeetingMinutes", label: "Pre-Start Meeting Minutes" },
+      { value: "ProgressMeetingAgenda", label: "Progress Meeting Agenda" },
+      { value: "ProgressMeetingMinutes", label: "Progress Meeting Minutes" },
+    ],
+  },
 ];
 
 const REPORT_LABELS = new Map(

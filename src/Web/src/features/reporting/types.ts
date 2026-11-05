@@ -84,7 +84,13 @@ export type CommitteeReportType =
   | "BuildingPerformanceReview"
   | "MaintenanceStrategy"
   | "AssetManagementPlan"
-  | "ContractCloseOutReport";
+  | "ContractCloseOutReport"
+  | "DesignTeamMeetingAgenda"
+  | "DesignTeamMeetingMinutes"
+  | "PreStartMeetingAgenda"
+  | "PreStartMeetingMinutes"
+  | "ProgressMeetingAgenda"
+  | "ProgressMeetingMinutes";
 export type CommitteeReportStatus = "Draft" | "Approved" | "Submitted";
 export type ReportExportFormat = "Pdf" | "Xlsx" | "Csv" | "Json" | "Docx" | "Pptx";
 

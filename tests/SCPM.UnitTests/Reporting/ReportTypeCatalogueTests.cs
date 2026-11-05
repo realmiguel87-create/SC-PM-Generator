@@ -90,12 +90,20 @@ public class ReportTypeCatalogueTests
             CommitteeReportType.DecisionPaper,
         };
 
-        var withDefinitions = StageDocuments.All.Select(d => d.Type).ToList();
+        var withDefinitions = StageDocuments.All.Select(d => d.Type)
+            .Concat(MeetingDocuments.All.Select(m => m.Type))
+            .ToList();
 
-        // No type is left without a home: it either has a document definition or is one of the
-        // six that deliberately has none.
+        // No type is left without a home: it has a document definition, a meeting definition, or
+        // is one of the six that deliberately has neither.
         Enum.GetValues<CommitteeReportType>()
             .Should().OnlyContain(t => withDefinitions.Contains(t) || narrativeOnly.Contains(t));
+
+        // A type cannot be both a stage document and a meeting: the two take different layouts,
+        // and whichever the exporter checked first would silently win.
+        StageDocuments.All.Select(d => d.Type)
+            .Intersect(MeetingDocuments.All.Select(m => m.Type))
+            .Should().BeEmpty();
 
         // And nothing appears twice, which a copy-paste into the catalogue would do silently —
         // the document would still render, from whichever entry Find happened to reach first.
